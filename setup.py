@@ -7,6 +7,8 @@ import glob
 
 
 data_files=[]
+
+data_files = [('share',['share/sdssMaskbits.par','share/sdss_filetypes.par'])]
 class AddUPS(Command):
     _data_files = data_files
     user_options=[]
