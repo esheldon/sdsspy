@@ -1,0 +1,7 @@
+%module py_atlas
+
+%{
+#include "py_atlas.h"
+%}
+
+#include "py_atlas.h"
