@@ -103,9 +103,14 @@ def filespec(ftype):
     fs = FileSpec()
     return fs.filespec(ftype)
 
+def filename(ftype, run=None, camcol=None, field=None, **keys):
+    fs=FileSpec()
+    return fs.filename(ftype, run, camcol, field, **keys)
+
 class FileSpec:
     def __init__(self, reload=False):
         self.load(reload=reload)
+
     def load(self, reload=False):
         if not hasattr(FileSpec, '_filetypes') or reload:
             if 'SDSSPY_DIR' not in os.environ:
@@ -119,6 +124,8 @@ class FileSpec:
             self._ftypes_lower = self._filetypes['ftype'].copy()
             for i in xrange(self._ftypes_lower.size):
                 self._ftypes_lower[i] = self._ftypes_lower[i].lower()
+    def reload(self):
+        self.load(reload=True)
 
     def filespec(self, ftype):
         w,=numpy.where(self._ftypes_lower == ftype.lower())
@@ -144,23 +151,115 @@ class FileSpec:
         path = os.path.join(d,name)
         return path
 
-    def dir(self, ftype, **keys):
+    def dir(self, ftype, run=None, camcol=None, **keys):
         p = self.dir_pattern(ftype)
-        d = expand_sdssvars(p, **keys)
+        d = expand_sdssvars(p, run=run, camcol=camcol, **keys)
         return d
-    def name(self, ftype, **keys):
+    def name(self, ftype, run=None, camcol=None, field=None, **keys):
         n = self.name_pattern(ftype)
-        n = expand_sdssvars(n, **keys)
+        n = expand_sdssvars(n, run=run, camcol=camcol, field=field, **keys)
         return n
-    def file(self, ftype, **keys):
+    def filename(self, ftype, run=None, camcol=None, field=None, **keys):
         f = self.file_pattern(ftype)
-        f = expand_sdssvars(f, **keys)
+        f = expand_sdssvars(f, run=run, camcol=camcol, field=field, **keys)
         return f
 
-    #def filename(self, ftype, run=None, camcol=None, field=None, id=None, **keys):
+_file_list_cache={}
+def file_list(ftype=None, run=None, camcol=None, field=None, **keys):
+
+    glob_pattern = keys.get('glob', None)
+    if glob_pattern is None:
+        if ftype is None:
+            raise ValueError('send filetype and some id info or the full pattern on glob= keyword')
+
+        
+        run_is_sequence, camcol_is_sequence, field_is_sequence =_check_sequences(run,camcol,field)
+
+        if run_is_sequence:
+            flist=[]
+            for trun in run:
+                flist += file_list(ftype, trun, camcol, field, **keys)
+            return flist
+
+        if camcol_is_sequence:
+            flist=[]
+            for tcamcol in camcol:
+                flist += file_list(ftype, run, tcamcol, field, **keys)
+            return flist
+
+        if field_is_sequence:
+            flist=[]
+            for tfield in field:
+                flist += file_list(ftype, run, camcol, tfield, **keys)
+            return flist
+
+        fs=FileSpec()
+        glob_pattern = fs.filename(ftype, run=run, camcol=camcol, field=field, **keys)
+
+    # add * at the end to catch .gz files
+    glob_pattern += '*'
+
+    if glob_pattern not in _file_list_cache or reload:
+        flist = glob.glob(glob_pattern)
+        _file_list_cache[glob_pattern] = flist
+    else:
+        flist = _file_list_cache[glob_pattern]
+    return flist
+
+def runlist():
+    rl = RunList()
+    return rl.runlist()
+
+class RunList:
+    """
+    This is basically a cache for the runList
+    """
+    def __init__(self, reload=False):
+        self.load(reload=reload)
+    def load(self, reload=False):
+        if not hasattr(RunList, '_runlist') or reload:
+            f=file_list('runList')
+            if len(f) == 0:
+                fname = filename('runList')
+                raise ValueError("file not found: '%s'" % fname)
+            self._runlist = sdsspy.yanny.readone(f[0], defchar=10)
+
+    def reload(self):
+        self.load(reload=True)
+
+    def runlist(self):
+        return self._runlist
+
+def _check_sequences(run,camcol,field):
+    run_is_sequence=False
+    camcol_is_sequence=False
+    field_is_sequence=False
+
+    nseq=0
+    if _is_sequence(run):
+        nseq += 1
+        run_is_sequence=True
+    if _is_sequence(camcol):
+        nseq += 1
+        camcol_is_sequence=True
+    if _is_sequence(field):
+        nseq += 1
+        field_is_sequence=True
+
+    # only one of run/camcol/field can be a sequence.
+    if nseq > 1:
+        raise ValueError("only one of run/camcol/field can be a sequence")
+
+    return run_is_sequence, camcol_is_sequence, field_is_sequence 
+
+def _is_sequence(var):
+    try:
+        l = len(var)
+        return True
+    except:
+        return False
 
 
-       
 def read(filetype, 
          run=None, 
          rerun=_DEFAULT_RERUN, 
@@ -316,7 +415,7 @@ def filedir(filetype, run=None, rerun=_DEFAULT_RERUN, camcol='*', **keywords):
 
 
 
-def filename(filetype_input, 
+def filename_old(filetype_input, 
              run=None,
              rerun=_DEFAULT_RERUN,
              camcol='*', 
@@ -407,23 +506,6 @@ def files2fields(filenames):
             return []
 
     return fields
-
-_file_list_cache={}
-def file_list(ftype=None, run=None, camcol=None, field=None, **keys):
-
-    glob_pattern = keys.get('glob', None)
-    if glob_pattern is None:
-        if ftype is None:
-            raise ValueError('send filetype and some id info or the full pattern on glob= keyword')
-        fs=FileSpec()
-        glob_pattern = fs.file(ftype, run=run, camcol=camcol, field=field, **keys)
-
-    if glob_pattern not in _file_list_cache or reload:
-        flist = glob.glob(glob_pattern)
-        _file_list_cache[glob_pattern] = flist
-    else:
-        flist = _file_list_cache[glob_pattern]
-    return flist
 
 
 class FileListOld:
@@ -583,6 +665,12 @@ class FileListOld:
         return key
 
 
+def find_rerun(run):
+    rl = runlist()
+    w,=numpy.where(rl['run'] == run)
+    if w.size == 0:
+        raise ValueError("Run %s not found in runList.par" % run)
+    return rl['rerun'][w[0]]
 
 # convert sdss numbers to strings in file names and such
 def stripe2string(stripes):
@@ -709,57 +797,65 @@ def expand_sdssvars(string_in, **keys):
     if string.find('$RUNNUM') != -1:
         run=keys.get('run', None)
         if run is None:
-            raise ValueError("run keyword must be sent")
+            raise ValueError("run keyword must be sent: '%s'" % string)
         string = string.replace('$RUNNUM', tostring(run))
     if string.find('$RUNSTR') != -1:
         run=keys.get('run', None)
         if run is None:
-            raise ValueError("run keyword must be sent")
+            raise ValueError("run keyword must be sent: '%s'" % string)
         string = string.replace('$RUNSTR', run2string(run))
 
     if string.find('$RERUN') != -1:
         rerun=keys.get('rerun', None)
         if rerun is None:
+            # try to determine from run number
+            run = keys.get('run',None)
+            if run is not None:
+                try:
+                    rerun = find_rerun(run)
+                except:
+                    rerun = None
+        if rerun is None:
             # try to determine rerun
-            raise ValueError("rerun keyword must be sent")
+            raise ValueError("rerun keyword must be sent: '%s'" % string)
         string = string.replace('$RERUN', tostring(rerun))
 
 
     if string.find('$COL') != -1:
         camcol=keys.get('camcol', None)
         if camcol is None:
-            raise ValueError("camcol keyword must be sent")
+            raise ValueError("camcol keyword must be sent: '%s'" % string)
         string = string.replace('$COL', camcol2string(camcol))
 
     if string.find('$FIELDSTR') != -1:
         field=keys.get('field', None)
         if field is None:
-            raise ValueError("field keyword must be sent")
+            raise ValueError("field keyword must be sent: '%s'" % string)
         string = string.replace('$FIELDSTR', field2string(field))
 
 
     if string.find('$IDSTR') != -1:
         id=keys.get('id',None)
         if id is None:
-            raise ValueError("id keyword must be sent")
+            raise ValueError("id keyword must be sent: '%s'" % string)
         string = string.replace('$IDSTR', id2string(id))
 
     if string.find('$ID') != -1:
         id=keys.get('id',None)
         if id is None:
-            raise ValueError("id keyword must be sent")
+            raise ValueError("id keyword must be sent: '%s'" % string)
         string = string.replace('$ID', tostring(id))
 
     if string.find('$FILTER') != -1:
         fiter=keys.get('filter',None)
         if filter is None:
-            raise ValueError("filter keyword must be sent")
+            raise ValueError("filter keyword must be sent: '%s'" % string)
         string = string.replace('$FILTER', filter2string(band))
 
     if string.find('$TYPE') != -1:
         type=keys.get('type',None)
         if type is None:
-            raise ValueError("type keyword must be sent")
+            raise ValueError("type keyword must be sent: '%s'" % string)
         string = string.replace('$TYPE', tostring(type))
 
     # see if there are any leftover un-expanded variables.  If so

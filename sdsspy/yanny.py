@@ -67,7 +67,7 @@ _numpy2yanny=\
 badbracket_reg=re.compile('\{ .*\{ .*\} .*\}')
 
 
-def readone(fname, one=False, names=None, indices=None, getpars=False):
+def readone(fname, one=False, names=None, indices=None, getpars=False, defchar=255):
     """
     Module:
         yanny
@@ -83,12 +83,12 @@ def readone(fname, one=False, names=None, indices=None, getpars=False):
  
     """
 
-    y = Yanny(fname)
+    y = Yanny(fname, defchar=defchar)
     data = y.read(one=True, names=names, indices=indices, getpars=getpars)
     del y
     return data
 
-def read(fname, one=False, names=None, indices=None, getpars=False):
+def read(fname, one=False, names=None, indices=None, getpars=False, defchar=255):
     """
     Module:
         yanny
@@ -199,7 +199,7 @@ def read(fname, one=False, names=None, indices=None, getpars=False):
 
     """
 
-    y = Yanny(fname)
+    y = Yanny(fname, defchar=defchar)
     data = y.read(one=one, names=names, indices=indices, getpars=getpars)
     del y
     return data
@@ -245,11 +245,13 @@ class Yanny():
     Modification History:
         Created: 2010-04-07, Erin Sheldon, BNL
     """
-    def __init__(self, fname=None, mode='r', verbose=False):
+    def __init__(self, fname=None, mode='r', defchar=255, verbose=False):
         self._fobj=None
 
         self._fname = fname
         self._mode = mode
+
+        self.defchar = defchar
 
         self.verbose=verbose
 
@@ -768,6 +770,10 @@ class Yanny():
 
             if numpy_type == 'S':
                 slen, dims = self.get_yanny_string_len_dims(dims)
+
+                if slen == '':
+                    #raise ValueError("char field declared with no size: '%s'" % fieldname)
+                    slen = str(self.defchar)
                 numpy_type += slen
 
             # if 'S' we may still end up with no dims
