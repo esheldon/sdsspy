@@ -1,8 +1,8 @@
 # note $RUNSTR means a formatted run string
 # like 000756 whereas $RUNNUM means unformatted
 #
-# $COL means an unpadded version of camcol
-# $FIELDSTR means a 4-padded string
+# $COL means an unpadded version of camcol, there is no padded version
+# $FIELDSTR means a 4-padded string, there is no unpadded version
 # $FILTER means 'r', 'g', etc
 # 
 # extension:  when -1, may be determined at run time from other info, 
@@ -17,6 +17,8 @@ typedef struct {
     int  ext;
 } FILETYPE;
 
+FILETYPE sdssMaskbits           $SDSSPY_DIR/share                                       sdssMaskbits.par                                -1
+FILETYPE sdssFileTypes          $SDSSPY_DIR/share                                       sdssFileTypes.par                               -1
 FILETYPE runList                $PHOTO_REDUX                                            runList.par                                     -1
 FILETYPE apObj                  $PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL                  apObj-$RUNSTR-$FILTER$COL-$FIELDSTR.fit         -1
 FILETYPE asTrans                $PHOTO_REDUX/$RERUN/$RUNNUM/astrom                      asTrans-$RUNSTR.fit                             -1

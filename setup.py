@@ -9,7 +9,7 @@ import glob
 data_files=[]
 
 # data files go under PREFIX/share
-data_files = [('share',['sdsspy/share/sdssMaskbits.par','sdsspy/share/sdss_filetypes.par'])]
+data_files = [('share',['sdsspy/share/sdssMaskbits.par','sdsspy/share/sdssFileTypes.par'])]
 
 # if you run python setup.py with_ups sdsspy then the PREFIX/ups dir and table
 # file will be written

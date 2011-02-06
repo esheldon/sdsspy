@@ -9,13 +9,12 @@
 
     Classes:
         FileList:
-            A class for genering file lists.  This reads actual
-            files from disk.  If you want to do more complex
-            selections, such as using the resolve and calibration
-            information, see the sdsspy.window module.
+            A class for genering file lists.  This reads actual files from
+            disk.  If you want to do more complex selections, such as using the
+            resolve and calibration information, see the sdsspy.window module.
 
 
-    Documented Functions:
+    Functions. 
             read(type, 
                  run=, 
                  rerun=301, 
@@ -47,6 +46,10 @@
                     
                 Generate an SDSS directory name from id info.
 
+        expand_sdssvars:
+            Convert environment variables and sdss vars, e.g. $RUNNUM, in file
+            specifications to values.  Used to generate file locations.
+
         Routines for converting SDSS id numbers to strings:
             These functions return scalars for scalar input, otherwise lists. 
 
@@ -65,7 +68,7 @@
                 Convert input field(s) to string(s)
             id2string(ids)
                 Convert input id(s) to string(s)
-            band2string(bands)
+            filter2string(bands)
                 Return alphabetic representation of band; works on both string
                 and numerical input.
 
@@ -89,27 +92,72 @@ import numpy
 import esutil
 from esutil.ostools import path_join
 
-
 import sdsspy
 
 _DEFAULT_RERUN=301
 
-__gflcache = {}
 debug=False
 
-# list the required elements for each file type
-filespec ={}
 
+def filespec(ftype):
+    fs = FileSpec()
+    return fs.filespec(ftype)
 
-filespec['calibobj'] = \
-    {'dir':'$PHOTO_SWEEP/$RERUN',
-     'check_compress': True,
-     'byfield': False,
-     'hdu': 1,
-     'name':'calibObj-$RUN-$CAMCOL-$TYPE.fits'}
+class FileSpec:
+    def __init__(self, reload=False):
+        self.load(reload=reload)
+    def load(self, reload=False):
+        if not hasattr(FileSpec, '_filetypes') or reload:
+            if 'SDSSPY_DIR' not in os.environ:
+                raise ValueError('SDSSPY_DIR environment var must be set')
+            d=os.environ['SDSSPY_DIR']
+            d = os.path.join(d, 'share')
+            f = os.path.join(d, 'sdssFileTypes.par')
 
+            self._filetypes = sdsspy.yanny.readone(f)
 
+            self._ftypes_lower = self._filetypes['ftype'].copy()
+            for i in xrange(self._ftypes_lower.size):
+                self._ftypes_lower[i] = self._ftypes_lower[i].lower()
 
+    def filespec(self, ftype):
+        w,=numpy.where(self._ftypes_lower == ftype.lower())
+        if w.size == 0:
+            raise ValueError("File type '%s' is unknown" % ftype)
+
+        fs = {'ftype': str(self._filetypes['ftype'][w][0]),
+              'dir':   str(self._filetypes['dir'][w][0]),
+              'name':  str(self._filetypes['name'][w][0]),
+              'ext':   int(self._filetypes['ext'][w][0])}
+        return fs
+
+    def dir_pattern(self, ftype):
+        fs = self.filespec(ftype)
+        return fs['dir']
+    def name_pattern(self, ftype):
+        fs = self.filespec(ftype)
+        return fs['name']
+    def file_pattern(self, ftype):
+        fs = self.filespec(ftype)
+        d = fs['dir']
+        name=fs['name']
+        path = os.path.join(d,name)
+        return path
+
+    def dir(self, ftype, **keys):
+        p = self.dir_pattern(ftype)
+        d = expand_sdssvars(p, **keys)
+        return d
+    def name(self, ftype, **keys):
+        n = self.name_pattern(ftype)
+        n = expand_sdssvars(n, **keys)
+        return n
+    def file(self, ftype, **keys):
+        f = self.file_pattern(ftype)
+        f = expand_sdssvars(f, **keys)
+        return f
+
+    #def filename(self, ftype, run=None, camcol=None, field=None, id=None, **keys):
 
 
        
@@ -360,7 +408,25 @@ def files2fields(filenames):
 
     return fields
 
-class FileList():
+_file_list_cache={}
+def file_list(ftype=None, run=None, camcol=None, field=None, **keys):
+
+    glob_pattern = keys.get('glob', None)
+    if glob_pattern is None:
+        if ftype is None:
+            raise ValueError('send filetype and some id info or the full pattern on glob= keyword')
+        fs=FileSpec()
+        glob_pattern = fs.file(ftype, run=run, camcol=camcol, field=field, **keys)
+
+    if glob_pattern not in _file_list_cache or reload:
+        flist = glob.glob(glob_pattern)
+        _file_list_cache[glob_pattern] = flist
+    else:
+        flist = _file_list_cache[glob_pattern]
+    return flist
+
+
+class FileListOld:
     """
     Class:
         FileList
@@ -543,25 +609,13 @@ def rerun2string(reruns):
     """
     return tostring(reruns)
 
-def camcol2string(camcols, band=None):
+def camcol2string(camcols):
     """
     cs = camcol2string(camcols)
     Return the string version of the camcol.  1 -> '1'
     Range checking is applied.
     """
-    cstr=tostring(camcols,1,6)
-    if band is not None:
-        # make sure it is a scalar
-        if numpy.isscalar(band):
-            buse=band
-        else:
-            buse=band[0]
-        bstr=band2string(buse)
-        if numpy.isscalar(cstr):
-            cstr = bstr+cstr
-        else:
-            cstr=[bstr+c for c in cstr]
-    return cstr
+    return tostring(camcols,1,6)
     
 def field2string(fields):
     """
@@ -581,7 +635,7 @@ def id2string(ids):
 
 
 
-band_dict = {0: 'u',
+filter_dict = {0: 'u',
              1: 'g',
              2: 'r',
              3: 'i',
@@ -592,25 +646,27 @@ band_dict = {0: 'u',
              'i':'i',
              'z':'z'}
 
-def band2string(band):
+def filter2string(filter):
     """
-    bstr = band2string(bands)
-    Return alphabetic representation of band
-      bpstr = band2string(2)      # returns 'r'
-      bpstr = band2string('2')    # returns 'r'
-      bpstr = band2string('r')    # returns 'r'
-      bpstr = band2string('R')    # returns 'r'
+    fstr = filter2string(filter)
+    Return alphabetic representation of filter
+      fstr = filter2string(2)      # returns 'r'
+      fstr = filter2string('2')    # returns 'r'
+      fstr = filter2string('r')    # returns 'r'
+      fstr = filter2string('R')    # returns 'r'
     """
 
-    if not numpy.isscalar(band):
+    if not numpy.isscalar(filter):
         # Scalar pars cannot be modified
-        return [band2string(b) for b in band]
+        return [filter2string(f) for f in filter]
 
+    if filter == '*':
+        return '*'
 
-    if band not in band_dict:
-        raise ValueError("bad bandpass indicator: %s" % bint)
+    if filter not in filter_dict:
+        raise ValueError("bad filter indicator: %s" % filter)
 
-    return band_dict[band]
+    return filter_dict[filter]
 
 def tostring(val, nmin=None, nmax=None):
     
@@ -641,7 +697,7 @@ def tostring(val, nmin=None, nmax=None):
 
 
 
-def expand_sdssvars(string_in, **keywords):
+def expand_sdssvars(string_in, **keys):
 
     string = string_in
 
@@ -650,66 +706,66 @@ def expand_sdssvars(string_in, **keywords):
 
     string = os.path.expandvars(string)
 
-    if string.find('$RUN') != -1:
-        if 'run' not in keywords:
-            raise ValueError("run keyword must be sent")
-        run=keywords['run']
+    if string.find('$RUNNUM') != -1:
+        run=keys.get('run', None)
         if run is None:
             raise ValueError("run keyword must be sent")
-        
-        string = string.replace('$RUN', run2string(run))
+        string = string.replace('$RUNNUM', tostring(run))
+    if string.find('$RUNSTR') != -1:
+        run=keys.get('run', None)
+        if run is None:
+            raise ValueError("run keyword must be sent")
+        string = string.replace('$RUNSTR', run2string(run))
 
     if string.find('$RERUN') != -1:
-        if 'rerun' not in keywords:
-            raise ValueError("rerun keyword must be sent")
-        rerun=keywords['rerun']
+        rerun=keys.get('rerun', None)
         if rerun is None:
+            # try to determine rerun
             raise ValueError("rerun keyword must be sent")
-        string = string.replace('$RERUN', rerun2string(rerun))
+        string = string.replace('$RERUN', tostring(rerun))
 
 
-    if string.find('$CAMCOL') != -1:
-        if 'camcol' not in keywords:
-            raise ValueError("camcol keyword must be sent")
-        camcol=keywords['camcol']
+    if string.find('$COL') != -1:
+        camcol=keys.get('camcol', None)
         if camcol is None:
             raise ValueError("camcol keyword must be sent")
+        string = string.replace('$COL', camcol2string(camcol))
 
-        string = string.replace('$CAMCOL', camcol2string(camcol))
-
-    if string.find('$FIELD') != -1:
-        if 'field' not in keywords:
-            raise ValueError("field keyword must be sent")
-        field=keywords['field']
+    if string.find('$FIELDSTR') != -1:
+        field=keys.get('field', None)
         if field is None:
             raise ValueError("field keyword must be sent")
-        string = string.replace('$FIELD', field2string(field))
+        string = string.replace('$FIELDSTR', field2string(field))
 
-    if string.find('$ID') != -1:
-        if 'id' not in keywords:
-            raise ValueError("id keyword must be sent")
-        id=keywords['id']
+
+    if string.find('$IDSTR') != -1:
+        id=keys.get('id',None)
         if id is None:
             raise ValueError("id keyword must be sent")
-        string = string.replace('$ID', id2string(id))
+        string = string.replace('$IDSTR', id2string(id))
 
-    if string.find('$BAND') != -1:
-        if 'band' not in keywords:
-            raise ValueError("band keyword must be sent")
-        band=keywords['band']
-        if band is None:
-            raise ValueError("band keyword must be sent")
-        string = string.replace('$BAND', band2string(band))
+    if string.find('$ID') != -1:
+        id=keys.get('id',None)
+        if id is None:
+            raise ValueError("id keyword must be sent")
+        string = string.replace('$ID', tostring(id))
+
+    if string.find('$FILTER') != -1:
+        fiter=keys.get('filter',None)
+        if filter is None:
+            raise ValueError("filter keyword must be sent")
+        string = string.replace('$FILTER', filter2string(band))
 
     if string.find('$TYPE') != -1:
-        if 'type' not in keywords:
-            raise ValueError("type keyword must be sent")
-        type=keywords['type']
+        type=keys.get('type',None)
         if type is None:
             raise ValueError("type keyword must be sent")
-        string = string.replace('$TYPE', type)
+        string = string.replace('$TYPE', tostring(type))
 
-
+    # see if there are any leftover un-expanded variables.  If so
+    # raise an exception
+    if string.find('$') != -1:
+        raise ValueError("There were unexpanded variables: '%s'" % string)
 
     return string
 

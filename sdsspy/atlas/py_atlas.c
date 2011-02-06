@@ -24,6 +24,9 @@ PyObject* py_read_atlas(const char* filename, int id) {
     dict = py_store_atlas_data(ai);
     phAtlasImageDel(ai,1);
 
+    PyDict_SetItemString(dict, "filename", PyString_FromString(filename));
+    PyDict_SetItemString(dict, "SOFT_BIAS", PyInt_FromLong(SOFT_BIAS));
+
     return dict;
 }
 
@@ -62,29 +65,9 @@ PyObject* py_store_atlas_data(ATLAS_IMAGE* ai) {
 
     dict = PyDict_New();
 
-    /*
-    printf("SOFT_BIAS: %d\n", SOFT_BIAS);
-    printf("ai->master_mask->rmin: %d\n", ai->master_mask->rmin);
-    printf("ai->master_mask->rmax: %d\n", ai->master_mask->rmax);
-
-    printf("ai->master_mask->cmin: %d\n", ai->master_mask->cmin);
-    printf("ai->master_mask->cmax: %d\n", ai->master_mask->cmax);
-
-    printf("ai->master_mask->row0: %d\n", ai->master_mask->row0);
-    printf("ai->master_mask->col0: %d\n", ai->master_mask->col0);
-
-    printf("ai->master_mask->nspan: %d\n", ai->master_mask->nspan);
-    printf("ai->master_mask->s[%d].y: %d\n", 0, ai->master_mask->s[0].y);
-    */
-
     py_copy_images(ai, dict);
     py_copy_stats(ai, dict);
 
-    /*
-    PyDict_SetItemString(dict, "filename", strobj);
-    PyDict_SetItemString(dict, "id", idobj);
-    PyDict_SetItemString(dict, "image",imobj);
-    */
 
     return dict;
 }
