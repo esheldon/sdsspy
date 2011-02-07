@@ -40,6 +40,12 @@ except:
 
 try:
     from . import files
+    from files import filename
+    from files import filedir
+    from files import read
+    from files import filespec
+    from files import runlist
+    from files import file_list
 except:
     sys.stderr.write('sdsspy.files module not loaded\n')
 

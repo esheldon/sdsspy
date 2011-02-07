@@ -6,8 +6,10 @@ Purpose:
     Wrappers for Robert Lupton's atlas reader.
 
 Functions:
-    read: Read atlas images and metadata.  See docs for that
-    function for more details.
+    read: 
+        Read atlas images and metadata.  See docs for that function for more
+        details.
+
 """
 
 import numpy
@@ -21,37 +23,22 @@ def read(filename, id, trim=False):
         read
     Purpose:
         Read atlas images and metadata from SDSS fpAtlas files.
-    Calling Sequence:
-        You can send either the file name and id or the full SDSS
-        id information.  
 
-            atlas_dict=atlas.read(filename, id, trim=False)
-            atlas_dict=atlas.read(run,camcol,field,id, rerun=, trim=False)
+    Calling Sequence:
+
+        from sdsspy import atlas
+        atlas_dict=atlas.read(filename, id, trim=False)
+
+        Note: Typically you will use the sdsspy.files.read('fpatlas', run, camcol, ...)
+            to read these files.
 
     Inputs:
-        Either the filename and id or all id information.
-
-        If the filename is entered:
             filename: 
                 the path to an fpAtlas file.
             id: 
                 The id of the object in the field.
 
-        If the full id info is entered:
-            run: 
-                The SDSS run
-            camcol: 
-                The camera column number in the range [1,6]
-            field: 
-                The field in the run
-            id:
-                The id of the object in the field.
-
     Optional Inputs:
-        rerun=: 
-            An optional input of the rerun.  If not entered it will be
-            determined from the run list.
-
         trim=: 
             If true, the atlas images will be trimmed to the region with actual
             data.  For example if an object was deblended from a large complex
@@ -79,9 +66,20 @@ def read(filename, id, trim=False):
             'SOFT_BIAS':
                 The value of the background in the image.
 
+    Exceptions:
+        IOError is raised is the file cannot be read.
+        NoAtlasImageError is raised if the requested object does not
+            have an atlas image.  This is a benign error which you
+            will most likely want to catch.
 
     """
-    imdict = _py_atlas.py_read_atlas(filename, id)
+
+    try:
+        imdict = _py_atlas.py_read_atlas(filename, id)
+    except RuntimeError as e:
+        # The RuntimeError happens when an object has no atlas image, this
+        # is no big deal.  Re-raise as NoAtlasImageError
+        raise NoAtlasImageError(e) 
 
     if trim:
         for band in xrange(5):
@@ -108,3 +106,11 @@ def read(filename, id, trim=False):
 
 
     return imdict
+
+
+class NoAtlasImageError(Exception):
+    def __init__(self, value):
+        self.value = str(value)
+    def __str__(self):
+        return self.value
+

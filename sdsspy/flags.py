@@ -82,7 +82,7 @@ class Flags():
             fname = self.filename()
             y = sdsspy.yanny.Yanny(fname)
 
-            Flags._flagstruct = y.read(one=True)
+            Flags._flagstruct = y.read()
     def reload(self):
         self.load(reload=True)
         
@@ -126,13 +126,25 @@ class Flags():
             2010-04-07: Erin Sheldon, BNL
         """
         # get ref to this for simpler notation
-        flags = Flags._flagstruct
+        flags = Flags._flagstruct['maskbits']
+        types = Flags._flagstruct['masktype']
 
         prefix=flagprefix.upper()
 
+        # get flags labeled with prefix
         wprefix, = numpy.where( flags['flag'] == prefix )
         if wprefix.size == 0:
             raise ValueError("No flag called '%s'" % prefix)
+
+        # get types labeled with this prefix
+        wtype, = numpy.where( types['flag'] == prefix )
+        if wtype.size == 0:
+            raise ValueError("No flag called '%s', but somehow passed 'maskbits' check" % prefix)
+
+        if types['datatype'][wtype] == 32:
+            flagval = numpy.int32(0)
+        else:
+            flagval = numpy.int64(0)
 
         # now get the labels to "or" together, make sure upper case
         if not isinstance(label, (tuple,list,numpy.ndarray)):
@@ -141,7 +153,6 @@ class Flags():
         label = [l.upper() for l in label]
 
         # get the associated bits
-        flagval = 0
         for l in label:
             w,=numpy.where(flags['label'][wprefix] == l)
             if w.size == 0:

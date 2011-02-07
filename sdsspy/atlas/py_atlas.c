@@ -49,9 +49,10 @@ ATLAS_IMAGE* py_load_atlas_images(const char* filename, int id) {
     phFitsDel(fits);  
   
     // no atlas image for this object
+    // this is not really an error, we will catch it
     if((ai)->id < 0) {			
         phAtlasImageDel(ai,1);
-        PyErr_Format(PyExc_IOError, "In file %s object %d has no atlas image", filename, id);
+        PyErr_Format(PyExc_RuntimeError, "In file %s object %d has no atlas image", filename, id);
         return NULL;
     }
 

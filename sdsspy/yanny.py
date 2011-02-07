@@ -67,7 +67,8 @@ _numpy2yanny=\
 badbracket_reg=re.compile('\{ .*\{ .*\} .*\}')
 
 
-def readone(fname, one=False, names=None, indices=None, getpars=False, defchar=255):
+def readone(fname, names=None, indices=None, getpars=False, defchar=255, 
+            verbose=False):
     """
     Module:
         yanny
@@ -83,12 +84,13 @@ def readone(fname, one=False, names=None, indices=None, getpars=False, defchar=2
  
     """
 
-    y = Yanny(fname, defchar=defchar)
+    y = Yanny(fname, defchar=defchar, verbose=verbose)
     data = y.read(one=True, names=names, indices=indices, getpars=getpars)
     del y
     return data
 
-def read(fname, one=False, names=None, indices=None, getpars=False, defchar=255):
+def read(fname, one=False, names=None, indices=None, getpars=False, defchar=255,
+         verbose=False):
     """
     Module:
         yanny
@@ -199,7 +201,7 @@ def read(fname, one=False, names=None, indices=None, getpars=False, defchar=255)
 
     """
 
-    y = Yanny(fname, defchar=defchar)
+    y = Yanny(fname, defchar=defchar, verbose=verbose)
     data = y.read(one=one, names=names, indices=indices, getpars=getpars)
     del y
     return data

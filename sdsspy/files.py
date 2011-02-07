@@ -7,74 +7,60 @@
         finding file lists, getting run metadata, converting SDSS id numbers 
         to strings, etc.
 
-    Classes:
-        FileList:
-            A class for genering file lists.  This reads actual files from
-            disk.  If you want to do more complex selections, such as using the
-            resolve and calibration information, see the sdsspy.window module.
+    Some Useful Functions. 
 
+        read(ftype, run=None, camcol=None, field=None, id=None, **keys)
+            Read an SDSS file given the input file type and id info
 
-    Functions. 
-            read(type, 
-                 run=, 
-                 rerun=301, 
-                 camcol='*', 
-                 field='*', 
-                 band='*', 
-                 type=,
-                 nocombine=)
+        filename(ftype, run=None, camcol=None, field=None, **keys)
+            Generate an SDSS file name from input file type and id info
 
-                Read from SDSS files.
+        filedir(ftype, run=None, camcol=None, **keys)
+            Generate an SDSS dir path from input file type and id info
 
-            filename(type, 
-                     run=, 
-                     rerun=301, 
-                     camcol='*', 
-                     field='*', 
-                     band='*', 
-                     add_dir=)
+        filespec(ftype)
+            Return the path specificition for the in input file type.  This information
+            read from
+                $SDSSPY_DIR/share/sdssFileTypes.par
 
-                Generate SDSS file names from id info.
+        file_list(ftype, run=None, camcol=None, field=None, **keys)
+            Get lists of SDSS files based on id info.
 
-            filedir(subdir, 
-                    run=, 
-                    rerun=301, 
-                    camcol='*', 
-                    field='*',
-                    band='*')
+        runlist()
+            Return the sdss runlist.  This is read from $PHOTO_REDUX/runList.par
+            This data is cached and only read once, so is preferable to using
+            sdsspy.files.read('runList')
 
-                    
-                Generate an SDSS directory name from id info.
-
-        expand_sdssvars:
+        expand_sdssvars(string, **keys):
             Convert environment variables and sdss vars, e.g. $RUNNUM, in file
             specifications to values.  Used to generate file locations.
 
         Routines for converting SDSS id numbers to strings:
             These functions return scalars for scalar input, otherwise lists. 
 
-            int2string(numbers, min, max)
-                Convert numbers to strings with zfill between min and max
-            stripe2string(stripes)
-                Convert input stripe(s) to string(s)
             run2string(runs)
-                Convert input run(s) to string(s)
-            rerun2string(reruns)
-                Convert input rerun(s) to string(s)
-            camcol2string(camcols, band=None)
-                Convert input camcol(s) to string(s). If band is sent it
-                is incorporated into the string as in SDSS files.
+                Convert input run to a string padded to 6 zeros.
             field2string(fields)
-                Convert input field(s) to string(s)
+                Convert input field to a string padded to 4 zeros.
             id2string(ids)
-                Convert input id(s) to string(s)
+                Convert input id to string
+            camcol2string(camcols, band=None)
+                Convert input camcol to a string.
             filter2string(bands)
-                Return alphabetic representation of band; works on both string
-                and numerical input.
+                Return alphabetic representation of filter
+                  fstr = filter2string(2)      # returns 'r'
+                  fstr = filter2string('2')    # returns 'r'
+                  fstr = filter2string('r')    # returns 'r'
+                  fstr = filter2string('R')    # returns 'r'
+
+            rerun2string(reruns)
+                Convert input rerun to string
+            stripe2string(stripes)
+                Convert input stripe to string
 
     Dependencies:
         numpy
-        esutil
+        esutil for reading files and struct processing.
 
 
     Modification History:
@@ -94,18 +80,291 @@ from esutil.ostools import path_join
 
 import sdsspy
 
-_DEFAULT_RERUN=301
 
-debug=False
+def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
+    """
+    Module:
+        sdsspy.files
+    Name:
+        read
+    Purpose:
+        Read an SDSS file given the input file type and id info
+    Calling Sequence:
+        data=read(ftype, run=None, camcol=None, field=None, id=None, **keys)
+
+    Example:
+        data=read('psField', 756, 3, 125)
+        imdict=read('fpAtlas', 756, 3, 125, 125, trim=True)
 
 
+    Inputs:
+        ftype: 
+            A file type, such as 'psField', 'fpAtlas', 'calibObj.gal'.  See
+            $SDSSPY_DIR/share/sdssFileTypes.par for a list of types.
+
+            The ftype is case-insensitive.
+
+    Keyword Inputs:
+
+        NOTE: For run,camcol,field, *one and only one* of these can be a
+        sequence.  You can also send globs such as '*' for these.
+
+        run: 
+            SDSS run id, needed for most files.
+        camcol:
+            SDSS camera column id
+        field:
+            SDSS field identifier
+        id:
+            SDSS id within a field.  E.g. the atlas reader requires an id.
+        filter:
+            SDSS filter id, such as 'u','g','r','i','z'.  You can also send
+            an index [0,5] representing those.
+        rerun:
+            You normally don't have to specify the rerun, it can typically
+            be determined from the run list.
+
+        rows:
+            A subset of the rows to return for tables.  Ignored if reading
+            multiple files.
+        columns: 
+            A subset of columns to read.
+
+        combine:
+            When reading multiple files, the result is usually a list of
+            results, one per file.  If combine=True, these are combined
+            into a single structure.
+        ensure_native:
+            Ensure the data is in native byte order.
+        lower, upper:
+            If lower, make sure all field names are in lower case. Upper
+            is the opposite.  Useful for reading outputs from IDL mwrfits
+            which is all caps.
+        trim:
+            Trim atlas images.  See sdsspy.atlas.read for more info.
+        ext:
+            Which extension to read.  Some files, like psField files, are
+            multi-extension.
+
+        verbose:  
+            Print the names of files being read.
+    Other Keywords:
+        These will probably be specific to a given file type. As an example:
+        id=: SDSS id within a field.  Some user-defined file type may depend
+            on the id
+
+    """
+
+    flist = file_list(ftype, run, camcol, field, id=id, **keys)
+
+    lftype = ftype.lower()
+    if lftype == 'fpatlas':
+        return _read_atlas(flist, id=id, **keys)
+    else:
+        if is_yanny(flist[0]):
+            return _read_yanny(flist, **keys)
+
+        import esutil as eu
+
+        if len(flist) == 1:
+            flist=flist[0]
+
+        ext=keys.get('ext', None)
+        if ext is None:
+            fs = filespec(ftype)
+            if fs['ext'] > -1:
+                ext=fs['ext']
+                keys['ext'] = ext
+
+        if lftype == 'psField' and ext != 6:
+            return _read_psfield(flist, ext, **keys)
+
+        return eu.io.read(flist, **keys)
+
+def filename(ftype, run=None, camcol=None, field=None, **keys):
+    """
+    Module:
+        sdsspy.files
+    Name:
+        filename
+    Purpose:
+        Generate an SDSS file name from input file type and id info
+    Calling Sequence:
+        fname=filename(ftype, run=None, camcol=None, field=None, **keys)
+
+    Example:
+        filename('psField', 756, 3, 125)
+
+
+    Inputs:
+        ftype: 
+            A file type, such as 'psField', 'fpAtlas', 'calibObj.gal'.  See
+            $SDSSPY_DIR/share/sdssFileTypes.par for a list of types.  
+            
+            The ftype is case-insensitive.
+
+    Keyword Inputs:
+
+        NOTE: run,camcol,field can also be globs such as '*'
+
+        run: 
+            SDSS run id, needed for most files.
+        camcol:
+            SDSS camera column id
+
+        field:
+            SDSS field identifier
+        filter:
+            SDSS filter id, such as 'u','g','r','i','z'.  You can also send
+            an index [0,5] representing those.
+
+        rerun:
+            You normally don't have to specify the rerun, it can typically
+            be determined from the run list.
+
+    Other Keywords:
+        These will probably be specific to a given file type. As an example:
+        id=: SDSS id within a field.  Some user-defined file type may depend
+            on the id
+
+    """
+    fs=FileSpec()
+    return fs.filename(ftype, run, camcol, field, **keys)
+
+def filedir(ftype, run=None, camcol=None, **keys):
+    """
+    Module:
+        sdsspy.files
+    Name:
+        filedir
+    Purpose:
+        Generate an SDSS dir path from input file type and id info
+    Calling Sequence:
+        fname=filedir(ftype, run=None, camcol=None, **keys)
+
+    Example:
+        filedir('psField', 756, 3)
+
+
+    Inputs:
+        ftype: 
+            A file type, such as 'psField', 'fpAtlas', 'calibObj.gal'.  See
+            $SDSSPY_DIR/share/sdssFileTypes.par for a list of types.  
+            
+            The ftype is case-insensitive.
+
+    Keyword Inputs:
+        run: 
+            SDSS run id, needed for most files.
+        camcol:
+            SDSS camera column id
+
+        rerun:
+            You normally don't have to specify the rerun, it can typically
+            be determined from the run list.
+
+    Other Keywords:
+        These will probably be specific to a given file type
+
+    """
+
+    fs=FileSpec()
+    return fs.dir(ftype, run, camcol, **keys)
+    
 def filespec(ftype):
+    """
+    Module:
+        sdsspy.files
+    Name:
+        filespec
+    Purpose:
+        Return the path specificition for the in input file type.  This information
+        read from
+            $SDSSPY_DIR/share/sdssFileTypes.par
+    Inputs:
+        ftype:  The file type. The ftype is case-insensitive.
+
+    Output:
+        A dictionary with the file specification:
+            'dir': A directory pattern, e.g. '$PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL'
+            'name': A name pattern, e.g. 'fpAtlas-$RUNSTR-$COL-$FIELDSTR.fit'
+            'ftype': The file type, e.g. fpAtlas
+            'ext': The extension.  Supported for fits files.
+    """
     fs = FileSpec()
     return fs.filespec(ftype)
 
-def filename(ftype, run=None, camcol=None, field=None, **keys):
-    fs=FileSpec()
-    return fs.filename(ftype, run, camcol, field, **keys)
+
+def is_yanny(fname):
+    return fname[-4:] == '.par'
+
+def _read_yanny(fname, **keys):
+    if is_sequence(fname):
+        if len(fname) > 1:
+            raise ValueError("Only read one .par file at a time")
+        fname=fname[0]
+    verbose = keys.get('verbose',False)
+    if verbose:
+        stdout.write("Reading file: '%s'\n" % fname)
+        
+    if 'runList' in fname or 'sdssFileTypes' in fname:
+        return sdsspy.yanny.readone(fname)
+    elif 'sdssMaskbits' in fname:
+        return sdsspy.yanny.read(fname)
+    else:
+        raise ValueError("Unexpected yanny .par file: '%s'" % fname)
+
+
+def _read_psfield(fname, ext, **keys):
+    """
+
+    This reader is designed to read extensions from a single file.  If you want
+    to read multiple files extension 6 then just use the main read() function.
+
+    """
+    
+    if is_sequence(ext):
+        n_ext=len(ext)
+        if n_ext == 1:
+            ext=ext[0]
+    else:
+        n_ext=1
+
+    if n_ext == 1:
+        data = eu.io.read(fname, ext=ext, **keys)
+    else:
+        data = []
+        for text in ext:
+            tdata = eu.io.read(fname, ext=text, **keys)
+            data.append(tdata)
+
+    return data
+
+
+def _read_atlas(flist, **keys):
+    import atlas
+    trim = keys.get('trim',False)
+    id = keys.get('id', None)
+    verbose=keys.get('verbose', False)
+
+    if id is None:
+        raise ValueError("You must enter id(s) to read fpAtlas files")
+
+    if len(flist) > 1:
+        raise ValueError("You can only read from one atlas image at a "
+                         "time, %s requested" % len(flist))
+    fname=flist[0]
+
+    if is_sequence(id):
+        if len(id) > 1:
+            raise ValueError("You can only read one object at a time "
+                             "from atlas images, %s requested" % len(id))
+        id=id[0]
+
+    if verbose:
+        print "Reading id %s from '%s'" % (id,fname)
+    imdict=atlas.read(fname, id, trim=trim)
+    return imdict
 
 class FileSpec:
     def __init__(self, reload=False):
@@ -165,15 +424,66 @@ class FileSpec:
         return f
 
 _file_list_cache={}
-def file_list(ftype=None, run=None, camcol=None, field=None, **keys):
+def file_list(ftype, run=None, camcol=None, field=None, **keys):
+    """
+    Module:
+        sdsspy.files
+    Name:
+        file_list
+    Purpose:
+        Get lists of SDSS files based on id info.
+    Calling Sequence:
+        fl = file_list(ftype, run=None, camcol=None, field=None, **keys)
 
+    Examples:
+        # get atlas file for a given run, camcol, and field
+        f=file_list('fpAtlas', 756, 3, 125)
+        # get for a range of field
+        f=file_list('fpAtlas', 756, 3, range(125,135))
+        # get for all fields in the column
+        f=file_list('fpAtlas', 756, 3, '*')
+        # get for a given field and all columns
+        f=file_list('fpAtlas', 756, '*', 125)
+
+    Inputs:
+        ftype: 
+            A file type, such as 'psField', 'fpAtlas', 'calibObj.gal'.  See
+            $SDSSPY_DIR/share/sdssFileTypes.par for a list of types.
+
+            The ftype is case-insensitive.
+
+    Keyword Inputs:
+
+        NOTE: For run,camcol,field, *one and only one* of these can be a
+        sequence.  You can also send globs such as '*' for these.
+
+        run: 
+            SDSS run id, needed for most files.
+        camcol:
+            SDSS camera column id
+        field:
+            SDSS field identifier
+        id:
+            SDSS id within a field.  E.g. the atlas reader requires an id.
+        filter:
+            SDSS filter id, such as 'u','g','r','i','z'.  You can also send
+            an index [0,5] representing those.
+        rerun:
+            You normally don't have to specify the rerun, it can typically
+            be determined from the run list.
+
+    Output:
+        A list of files.  The output is always a list even if only one file
+        is returned.
+
+    """
     glob_pattern = keys.get('glob', None)
     if glob_pattern is None:
         if ftype is None:
             raise ValueError('send filetype and some id info or the full pattern on glob= keyword')
 
         
-        run_is_sequence, camcol_is_sequence, field_is_sequence =_check_sequences(run,camcol,field)
+        run_is_sequence, camcol_is_sequence, field_is_sequence =_check_id_sequences(run,camcol,field)
 
         if run_is_sequence:
             flist=[]
@@ -199,7 +509,7 @@ def file_list(ftype=None, run=None, camcol=None, field=None, **keys):
     # add * at the end to catch .gz files
     glob_pattern += '*'
 
-    if glob_pattern not in _file_list_cache or reload:
+    if glob_pattern not in _file_list_cache:
         flist = glob.glob(glob_pattern)
         _file_list_cache[glob_pattern] = flist
     else:
@@ -207,42 +517,81 @@ def file_list(ftype=None, run=None, camcol=None, field=None, **keys):
     return flist
 
 def runlist():
-    rl = RunList()
-    return rl.runlist()
-
-class RunList:
     """
-    This is basically a cache for the runList
+    Module:
+        sdsspy.files
+    Name:
+        runlist
+    Purpose:
+        Return the sdss runlist.  This is read from $PHOTO_REDUX/runList.par
+        This data is cached and only read once, so is preferable to using
+        sdsspy.files.read('runList')
+
+    Calling Sequence:
+        rl = sdsspy.files.runlist()
+
+    Outputs:
+        A numpy array with fields. This is the typedef from the yanny .par file:
+            typedef struct {
+                int       run;        # Run number
+                char      rerun[];    # Relevant rerun directory
+                int       exist;      # Does a directory exist (has it ever been queued) (0/1)?
+                int       done;       # Is this field done (0-Not done/1-Done)?
+                int       calib;      # Is this field calibrated (0-No/1-Yes)?
+                                      # All the fields below are only updated if the run is done
+                                      # Otherwise, they are set to zero.
+                int       startfield; # Starting field - determined from fpObjc present
+                int       endfield;   # Ending field
+                char      machine[];  # The machine the data is on
+                char      disk[];     # The disk this run is on....
+            } RUNDATA;
+
+    """
+    rl = RunList()
+    return rl.data
+
+
+class SimpleFileCache:
+    """
+    This is a base class for file caches.  Inherit from this and implement a
+    .load() method.
     """
     def __init__(self, reload=False):
         self.load(reload=reload)
+
     def load(self, reload=False):
-        if not hasattr(RunList, '_runlist') or reload:
-            f=file_list('runList')
-            if len(f) == 0:
-                fname = filename('runList')
-                raise ValueError("file not found: '%s'" % fname)
-            self._runlist = sdsspy.yanny.readone(f[0], defchar=10)
+        """
+        Over-ride this method, and replace SimpleCache below with your
+        class name.
+        """
+        if not hassattr(SimpleFileCache, 'data') or reload:
+            SimpleFileCache.data=None
 
     def reload(self):
         self.load(reload=True)
 
-    def runlist(self):
-        return self._runlist
+class RunList(SimpleFileCache):
+    """
+    This is a cache for the runList
+    """
+    def load(self, reload=False):
+        if not hasattr(RunList, 'data') or reload:
+            RunList.data = read('runList')
 
-def _check_sequences(run,camcol,field):
+
+def _check_id_sequences(run,camcol,field):
     run_is_sequence=False
     camcol_is_sequence=False
     field_is_sequence=False
 
     nseq=0
-    if _is_sequence(run):
+    if is_sequence(run):
         nseq += 1
         run_is_sequence=True
-    if _is_sequence(camcol):
+    if is_sequence(camcol):
         nseq += 1
         camcol_is_sequence=True
-    if _is_sequence(field):
+    if is_sequence(field):
         nseq += 1
         field_is_sequence=True
 
@@ -252,417 +601,15 @@ def _check_sequences(run,camcol,field):
 
     return run_is_sequence, camcol_is_sequence, field_is_sequence 
 
-def _is_sequence(var):
+def is_sequence(var):
+    if isinstance(var, (str, unicode)):
+        return False
+
     try:
         l = len(var)
         return True
     except:
         return False
-
-
-def read(filetype, 
-         run=None, 
-         rerun=_DEFAULT_RERUN, 
-         camcol=None,
-         field='*', 
-         **keywords):
-    """
-    res = sdsspy.files.read(filetype, 
-                            run=None, 
-                            rerun=301,
-                            camcol=None, 
-                            field='*',
-                            columns=None,
-                            combine=True, 
-                            verbose=False, 
-                            header=False, 
-                            ensure_native=False,
-                            **file_keywords)
-
-    Inputs:
-        filetype: File type, e.g. 'calibobj'
-    Keywords:
-        run: 
-            The SDSS run.  Most files require this.
-        rerun: 
-            The SDSS rerun.  Default is 301
-        camcol: 
-            Camera column.  Required for many SDSS files.  Can be '*'
-        field: 
-            The field to read.  Can be '*' or a sequence or array.  Default is
-            '*' meaning "read all fields"
-        band: 
-            bandpass. Required for some files.  Can also be '*'
-        type: 
-            The type, e.g. 'gal' for calibObj.  Can also be '*'
-        combine: 
-            Results are initially kept in a list of arrays, with each list
-            element corresponding to a single file read.  By default these are
-            combined into one big array.  If this keyword is False this
-            combination step is not performed, saving some memory but making
-            use difficult.
-
-        rows: 
-            A subset of rows to read from a file.  Ignored if reading multiple
-            files.
-        columns: 
-            A subset of columns to read.
-        ensure_native:
-            For some file formats, e.g. .fits and .rec, you can force the 
-            byte ordering to native by setting this keyword.
-        verbose:  
-            Print the names of files being read.
-    Revision History:
-        Documented: 2007-06-01, Erin Sheldon, NYU
-    """
-
-    # get some keywords
-    rows=keywords.get('rows',None)
-    columns=keywords.get('columns',None)
-    verbose=keywords.get('verbose',False)
-    combine=keywords.get('combine',True)
-    ensure_native=keywords.get('ensure_native',False)
-    
-    # Note, we always get the full field, if this filetype is split by fields.
-    # then we can extract a subset later
-
-    ftype=filetype.lower()
-    fl = FileList(ftype, run, rerun=rerun, camcol=camcol, **keywords)
-    flist = fl.flist(subfields=field)
-    
-    data = esutil.io.read(flist, 
-                          ext=filespec[ftype]['hdu'],
-                          rows=rows,
-                          columns=columns, 
-                          view=numpy.ndarray, 
-                          verbose=verbose, 
-                          lower=True,
-                          ensure_native=ensure_native,
-                          combine=combine)
-
-    # for some types we can split by field after the fact,e.g. calibobj
-    # only try this if the data on disk are not split by field already.
-    post_fieldsplit_types = ['calibobj']
-    if field != '*' \
-            and not filespec[ftype]['byfield'] \
-            and ftype in post_fieldsplit_types:
-
-        data = extract_subfields(data, field, verbose=verbose)
-
-    return data
-
-
-def extract_subfields(data, fields, verbose=False):
-    if 'field' in data.dtype.names:
-        if verbose:
-            stdout.write("Extracting a subset of fields\n")
-        h,rev=esutil.stat.histogram(data['field'],min=0,rev=True)
-
-        f2get = ensure_sequence(fields)
-        keep = numpy.zeros(data.size)
-        for f in f2get:
-            if rev[f] != rev[f+1]:
-                w=rev[ rev[f]:rev[f+1] ]
-                keep[w] = 1
-        wkeep, = numpy.where(keep != 0)
-        if wkeep.size == 0:
-            raise ValueError("None of the requested fields matched")
-
-        data_keep = data[wkeep]
-    else:
-        data_keep = data
-
-    return data_keep
-
-
-
-def filedir(filetype, run=None, rerun=_DEFAULT_RERUN, camcol='*', **keywords):
-    """
-    dir = sdsspy.files.filedir(filetype, run=None, **keywords)
-
-    E.g. For calibobj, all that is required is the filetype
-    and rerun.
-
-       filedir = filedir('calibobj', rerun=301)
-
-    Note also, the rerun can be omitted if using the default
-    which is 301
-
-       filedir = filedir('calibobj')
-
-    Keywords:
-        run
-        rerun
-        camcol
-        field
-        id
-        band
-        type
-
-    """
-
-    ftype=filetype.lower()
-    if ftype not in filespec:
-        raise ValueError("Unsupported file type: '%s'" % ftype)
-
-    dir = expand_sdssvars(filespec[ftype]['dir'], 
-                          run=run, 
-                          rerun=rerun, 
-                          camcol=camcol,
-                          **keywords)
-    return dir
-
-
-
-
-def filename_old(filetype_input, 
-             run=None,
-             rerun=_DEFAULT_RERUN,
-             camcol='*', 
-             field='*',
-             add_dir=True, 
-             **keywords):
-    """
-    name = sdsspy.files.filename(filetype, run, rerun=301, add_dir=True, **keywords)
-
-    Keywords:
-        run (can either be argument or keyword)
-        rerun (default 301)
-        camcol
-        field
-        id
-        band
-        type
-
-    Get an SDSS file name, such as calibobj, etc, given the relevant info.
-    run,rerun,camcol,band must be scalars.  
-    
-    Certain file names requre more info than others. asTrans only requires the
-    run, but calibObj needs run,camcol (assuming default rerun). The directory
-    is also added unless add_dir = False
-
-
-    # example: calibobj for run 756, camcol 1 type 'gal' and default
-    #     rerun of 301
-    >>> filename('calibobj', 756, camcol=1, type='gal')
-    '/global/data/boss/sweeps/2010-01-11/301/calibObj-000756-1-gal.fits.gz'
-    """
-
-    ftype=filetype_input.lower()
-
-    if ftype not in filespec:
-        raise ValueError("Unsupported file type: '%s'" % ftype)
-
-    name = filespec[ftype]['name']
-    name = expand_sdssvars(name, 
-                           run=run, 
-                           rerun=rerun, 
-                           camcol=camcol,
-                           field=field,
-                           **keywords)
-
-    if add_dir:
-        dir = filedir(ftype, 
-                      run=run, 
-                      rerun=rerun, 
-                      camcol=camcol,
-                      field=field, 
-                      **keywords)
-        name = os.path.join(dir, name)
-    
-    return name
-
-
-
-                 
-
-__files2fields_pattern_compiled = re.compile('-[0-9][0-9][0-9][0-9]$')
-__files2fields_errmess = \
-      'Incorrectly formatted name %s.  Must end in -iiii.extension\n'
-def files2fields(filenames):
-    """
-    field = sdsspy.files.files2fields(filenames)
-    Extract the field number from field-by-field type of files such
-    as a tsObj file that end with front-iiii.extension
-    """
-    if numpy.isscalar(filenames):
-        filenames = [filenames]
-
-    fields = []
-    search = __files2fields_pattern_compiled.search
-
-    for name in filenames:
-        if name.find('.') != -1:
-            sp = name.split('.')[0]
-            mo = search(sp)
-            if mo:
-                field = int( sp[mo.start()+1:] )
-                fields.append(field)
-            else:
-                sys.stdout.write(__files2fields_errmess % s)
-                return []
-        else:
-            sys.stdout.write(__files2fields_errmess % s)
-            return []
-
-    return fields
-
-
-class FileListOld:
-    """
-    Class:
-        FileList
-    Purpose:
-        A class to find sdss file lists on disk.  Lists for previous calls
-        are cached internally for speed.
-
-    Construction and loading of lists:
-        By default only the file type is needed, in which case a glob pattern
-        with '*' for all file elements is created.  Subsets are determined
-        through the keyword.
-
-    Required Arguments for Construction or load():
-        filetype:  An SDSS filetype.  Supported types:
-            calibObj
-
-    Keywords for Construction and load():
-        run
-        rerun (default 301)
-        camcol
-        field
-        id
-        band
-        type (e.g. 'gal' for calibObj)
-        
-    Examples:
-        import sdsspy
-        ft=sdsspy.files.FileList('calibobj', run=756, type='gal')
-        flist = ft.flist()
-        for f in flist:
-            print f
-
-        ft.load('fpAtlas', run=94, camcol=3)
-        for f in ft.flist():
-            print f
-    """
-    def __init__(self, 
-                 filetype, 
-                 run=None, 
-                 rerun=_DEFAULT_RERUN, 
-                 camcol='*', 
-                 field='*', 
-                 id='*', 
-                 band='*',
-                 type='*',
-                 **keywords):
-
-        if not hasattr(FileList, '_flist'):
-            # this class variable will hold all previously requested file 
-            # lists
-            FileList._flist={} 
-
-        self.load(filetype, run, rerun, camcol, field, id, band, type)
-
-    def load(self, 
-             filetype, 
-             run=None, 
-             rerun=301, 
-             camcol='*', 
-             field='*', 
-             id='*', 
-             band='*', 
-             type='*'):
-
-        self._filetype=filetype.lower()
-        self._run=run
-        self._rerun=rerun
-        self._camcol=camcol
-        self._field=field
-        self._id=id
-        self._band=band
-        self._type=type
-        self._key = self.makekey(filetype,run,rerun,camcol,field,id,band,type)
-
-        if self._key not in FileList._flist:
-            
-            # now load the file list
-            pattern = filename(filetype,
-                               run=run,rerun=rerun,camcol=camcol,field=field,id=id,
-                               band=band,type=type)
-            if filespec[self._filetype]['check_compress']:
-                pattern += '*'
-
-            flist = glob.glob(pattern)
-            if len(flist) == 0:
-                raise RuntimeError("no files matched pattern: %s" % pattern)
-            FileList._flist[self._key] = flist
-
-            self._used_cache = False
-        else:
-            self._used_cache = True
-
-    def used_cache(self):
-        return self._used_cache
-
-    def reload(self):
-        if self._key in FileList._flist:
-            del FileList._flist[self._key]
-        self.load(self._filetype,
-                  self._run,
-                  self._rerun,
-                  self._camcol,
-                  self._field,
-                  self._id,
-                  self._band,
-                  self._type)
-
-    def flist(self, subfields='*'):
-        if self._key not in FileList._flist:
-            raise ValueError("File has not been loaded")
-
-        if subfields == '*' or not filespec[self._filetype]['byfield']:
-            # just return everything if '*' or if the data is not split
-            # by field anyway
-            return FileList._flist[self._key]
-        else:
-            # if this file type is split by fields, extract the desired subset
-            if isinstance(subfields,(str,unicode)):
-                if subfields != '*':
-                    raise ValueError("String not supported for field keyword "
-                                     "except for '*'")
-            else:
-                if isinstance(subfields,(list,tuple,numpy.ndarray)):
-                    f2get = subfields
-                else:
-                    f2get = [subfields]
-
-                keep = []
-                this_flist=FileList._flist[self._key]
-                for f in f2get:
-                    tname = filename(self._filetype,self._run,
-                                     rerun=self._rerun,
-                                     camcol=self._camcol,
-                                     field=f,
-                                     id=self._id,
-                                     band=self._band,
-                                     type=self._type)
-
-                    if tname in this_flist:
-                        keep.append(tname)
-
-                if len(keep) == 0:
-                    raise ValueError("None of the requested fields were found")
-
-                return keep 
-
-
-
-    def clear(self):
-        FileList._flist={}
-
-    def makekey(self,filetype,run,rerun,camcol,field,id,band,type):
-        key='%s-%s-%s-%s-%s-%s-%s-%s' % (filetype,run,rerun,camcol,field,id,band,type)
-        return key
 
 
 def find_rerun(run):
@@ -864,10 +811,4 @@ def expand_sdssvars(string_in, **keys):
         raise ValueError("There were unexpanded variables: '%s'" % string)
 
     return string
-
-def ensure_sequence(var):
-    if isinstance(var, (list,tuple,numpy.ndarray)):
-        return var
-    else:
-        return [var]
 
