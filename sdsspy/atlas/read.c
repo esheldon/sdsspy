@@ -413,7 +413,6 @@ read_fits_row(const FITS *fits,		/* the table */
                 buff = (unsigned char *)om->s;
             }
             break;
-        /*
         case TYPE_PSF_KL_COMP:
             {
                 int i = 0;
@@ -443,7 +442,6 @@ read_fits_row(const FITS *fits,		/* the table */
                 nbyte *= sizeof(float);
             }
             break;
-        */
         default:
             shError("You cannot get here: %d", type);
             buff = NULL; offset = nint = 0;	/* NOTREACHED */
