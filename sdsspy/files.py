@@ -141,7 +141,7 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
             is the opposite.  Useful for reading outputs from IDL mwrfits
             which is all caps.
         trim:
-            Trim atlas images.  See sdsspy.atlas.read for more info.
+            Trim atlas images.  See sdsspy.atlas.read_atlas for more info.
         ext:
             Which extension to read.  Some files, like psField files, are
             multi-extension.
@@ -363,7 +363,7 @@ def _read_atlas(flist, **keys):
 
     if verbose:
         print "Reading id %s from '%s'" % (id,fname)
-    imdict=atlas.read(fname, id, trim=trim)
+    imdict=atlas.read_atlas(fname, id, trim=trim)
     return imdict
 
 class FileSpec:

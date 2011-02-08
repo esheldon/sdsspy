@@ -21,7 +21,8 @@
  * Set the pointers for a 3-dimensional array BASE of objects of type TYPE,
  * with dimensions NSIGMA, NROW_A, and NCOL_A
  */
-#define RC_SCALE 1e-3			/* scale factor for rowc/colc coeffs */
+// This is now in phConsts.h
+//#define RC_SCALE 1e-3			/* scale factor for rowc/colc coeffs */
 
 #define SET_POINTERS(BASE, TYPE, NSIGMA, NROW_A, NCOL_A) \
    BASE = shMalloc((NSIGMA + 1)*sizeof(TYPE **)); \

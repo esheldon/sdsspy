@@ -1,12 +1,14 @@
 """
 Package:
     atlas
+Module:
+    atlas
 
 Purpose:
     Wrappers for Robert Lupton's atlas reader.
 
 Functions:
-    read: 
+    read_atlas: 
         Read atlas images and metadata.  See docs for that function for more
         details.
 
@@ -15,12 +17,12 @@ Functions:
 import numpy
 import _py_atlas
 
-def read(filename, id, trim=False):
+def read_atlas(filename, id, trim=False):
     """
     Module:
         atlas
     Name:
-        read
+        read_atlas
     Purpose:
         Read atlas images and metadata from SDSS fpAtlas files.
 

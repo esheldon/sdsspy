@@ -66,28 +66,28 @@ PyObject* py_store_atlas_data(ATLAS_IMAGE* ai) {
 
     dict = PyDict_New();
 
-    py_copy_images(ai, dict);
-    py_copy_stats(ai, dict);
+    py_copy_atlas_images(ai, dict);
+    py_copy_atlas_stats(ai, dict);
 
 
     return dict;
 }
 
-void py_copy_images(ATLAS_IMAGE* ai, PyObject* dict) {
+void py_copy_atlas_images(ATLAS_IMAGE* ai, PyObject* dict) {
     int band;
     PyObject* imlist;
     PyObject* imobj=NULL;
 
     imlist = PyList_New(0);
     for (band=0; band<NCOLOR; band++) {
-        imobj = py_copy_image(ai, band);
+        imobj = py_copy_atlas_image(ai, band);
         PyList_Append(imlist, imobj);
     }
     PyDict_SetItemString(dict, "images", imlist);
 }
 
 // this assumes uint16 for numpy array
-PyObject* py_copy_image(ATLAS_IMAGE* ai, int band) {
+PyObject* py_copy_atlas_image(ATLAS_IMAGE* ai, int band) {
 
     U16* pix;               /* pointer to pixels for specified band */
     npy_uint16* image;
@@ -180,7 +180,7 @@ PyObject* py_create_uint16_image(int nrow, int ncol) {
     return imobj;
 }
 
-void py_copy_stats(ATLAS_IMAGE* ai, PyObject* dict) {
+void py_copy_atlas_stats(ATLAS_IMAGE* ai, PyObject* dict) {
 
     int band;
     PyObject* row0list=NULL;
