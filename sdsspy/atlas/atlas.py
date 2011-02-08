@@ -5,12 +5,12 @@ Module:
     atlas
 
 Purpose:
-    Wrappers for Robert Lupton's atlas reader.
+    Wrapper for Robert Lupton's atlas reader.
 
 Functions:
     read_atlas: 
-        Read atlas images and metadata.  See docs for that function for more
-        details.
+        Read atlas images and metadata.  Calls the C routine.  See docs for
+        that function for more details.
 
 """
 

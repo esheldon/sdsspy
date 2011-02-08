@@ -169,6 +169,7 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
         if len(flist) == 1:
             flist=flist[0]
 
+        filter=keys.get('filter', None)
         ext=keys.get('ext', None)
         if ext is None:
             fs = filespec(ftype)
@@ -176,8 +177,8 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
                 ext=fs['ext']
                 keys['ext'] = ext
 
-        if lftype == 'psField' and ext != 6:
-            return _read_psfield(flist, ext, **keys)
+        if lftype == 'psField' and ext != 6 or filter is not None:
+            return _read_psfield(flist, **keys)
 
         return eu.io.read(flist, **keys)
 
@@ -315,7 +316,7 @@ def _read_yanny(fname, **keys):
         raise ValueError("Unexpected yanny .par file: '%s'" % fname)
 
 
-def _read_psfield(fname, ext, **keys):
+def _read_psfield(fname, **keys):
     """
 
     This reader is designed to read extensions from a single file.  If you want
@@ -323,22 +324,25 @@ def _read_psfield(fname, ext, **keys):
 
     """
     
-    if is_sequence(ext):
-        n_ext=len(ext)
-        if n_ext == 1:
-            ext=ext[0]
+    filter = keys.get('filter', None)
+    if filter is None:
+        ext = keys.get('ext', None)
+        if is_sequence(ext):
+            raise ValueError("only ask for a single filter/extension when reading "
+                             "KL basis functions from a psField file")
+        filter = ext+1
     else:
-        n_ext=1
+        if is_sequence(filter):
+            raise ValueError("only ask for a single filter/extension when reading "
+                             "KL basis functions from a psField file")
 
-    if n_ext == 1:
-        data = eu.io.read(fname, ext=ext, **keys)
-    else:
-        data = []
-        for text in ext:
-            tdata = eu.io.read(fname, ext=text, **keys)
-            data.append(tdata)
+    if is_sequence(fname):
+        raise ValueError("only ask for a single file when reading "
+                         "psField KL basis functions")
+        fname = fname[0]
 
-    return data
+    pkl = sdsspy.atlas.PSFKL(fname, filter)
+    return pkl
 
 
 def _read_atlas(flist, **keys):
