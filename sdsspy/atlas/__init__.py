@@ -8,15 +8,21 @@ Purpose:
 
 Modules:
     atlas:
-        wrappers for the C atlas reader.
+        wrappers for the C atlas reader.  See docs for sdsspy.atlas.atlas for
+        more info.
     psf:
         Contains a wrapper class PSFKL for the C PSF reader, and reconstructing
-        the PSF at a row and column.
+        the PSF at a row and column.  See docs for sdsspy.atlas.psf and
+        sdsspy.atlas.psf.PSFKL for more info.
 
-See docs for the read function for more details.
+atlas.read_atlas and psf.PSFKL get pulled into this namespace as well, so you can access
+them with
+    sdsspy.atlas.read_atlas
+    sdsspy.atlas.PSFKL
+
 """
-import atlas
 
+import atlas
 from atlas import read_atlas
 
 import psf
