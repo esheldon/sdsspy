@@ -63,6 +63,7 @@ except:
 try:
     import flags
     from flags import flagval
+    from flags import Flags
 except:
     sys.stderr.write('sdsspy.flags module not loaded\n')
 
