@@ -7,8 +7,6 @@
 # 
 # extension:  when -1, may be determined at run time from other info, 
 # or may not be applicable
-# Warning: some of the extensions were not in sdss_name() at all, in which
-# case I set to -1
 
 typedef struct {
     char ftype[50];
@@ -80,7 +78,7 @@ FILETYPE psBB                   $PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL          
 FILETYPE psCT                   $PHOTO_REDUX/$RERUN/$RUNNUM/photo                       psCT-$RUNSTR-$COL.fit                           -1
 FILETYPE psFang                 $PHOTO_REDUX/$RERUN/$RUNNUM/psFangs/$COL                psFang-$RUNSTR-$COL-$FIELDSTR.fit               -1
 FILETYPE psFF                   $PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL                  psFF-$RUNSTR-$FILTER$COL.fit                    -1
-# note psField defaults to extension 6 which are fixed structures.  The psf reconstruction info is i the other extensions.
+# note psField defaults to extension 6 which are fixed structures.  The psf reconstruction info is in the other extensions.
 FILETYPE psField                $PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL                  psField-$RUNSTR-$COL-$FIELDSTR.fit              6
 FILETYPE psKO                   $PHOTO_REDUX/$RERUN/$RUNNUM/PS/$COL                     psKO-$RUNSTR-$COL-$FIELDSTR.fit                 -1
 FILETYPE reLocalRun             $PHOTO_REDUX/$RERUN/$RUNNUM/resolve                     reLocalRun-$RUNSTR-$COL-$FIELDSTR.fits          1
