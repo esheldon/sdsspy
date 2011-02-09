@@ -58,9 +58,9 @@ class PSFKL:
         Purpose:
             Reconstruct a PSF image a a given row and column.
         Calling Sequence:
+
             kl = PSFKL(filename, filter)
-            image = kl.rec(row, col, counts=1.0, ncomp=, trim=False)
-            dict = kl.rec(row, col, counts=1.0, ncomp=, trim=False, more=False)
+            image = kl.rec(row, col, counts=None, ncomp=, trim=False, more=False)
 
         Inputs:
             row,col: 
