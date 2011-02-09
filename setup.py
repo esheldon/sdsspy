@@ -70,7 +70,7 @@ atlas_module = Extension('sdsspy.atlas._py_atlas', sources=atlas_sources)
 # required to compile the atlas reader
 os.environ['CFLAGS'] = '-DLINKAGE -DCHECK_LEAKS -DSTAND_ALONE -DSDSS_LITTLE_ENDIAN'
 
-packages = ['sdsspy', 'sdsspy.atlas']
+packages = ['sdsspy', 'sdsspy.atlas', 'sdsspy.sandbox']
 setup(name='sdsspy',
       version='0.1',
       cmdclass={"with_ups": AddUPS},

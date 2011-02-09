@@ -6,7 +6,11 @@ Purpose:
     Provide a sandbox to try out new modules.  Add a module to this directory and 
     import it below.
 
+    Note sdsspy.sandbox is not imported by default.  You have to explicitly import
+    it:
+        import sdsspy.sandbox
+
 """
 
-import example
+from . import example
 
