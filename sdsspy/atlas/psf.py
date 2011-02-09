@@ -18,7 +18,7 @@ Classes:
 import numpy
 import sdsspy
 import _py_atlas
-
+from sys import stdout
 
 class PSFKL:
     """
@@ -71,6 +71,19 @@ class PSFKL:
             self.filter=None
             self.filternum=None
             self.basis = None
+
+    def __repr__(self):
+        if self.filename is None:
+            stdout.write("PSFKL: no data loaded\n")
+        else:
+            rep=("PSFKL: SDSS PSF KL Decomposition\n"
+                 "    filename: {filename}\n"
+                 "    filter:   {filter}\n")
+            rep = rep.format(filename=self.filename,
+                             filter=self.filter)
+            return rep
+
+            
 
     def rec(self, rowc, colc, counts=1.0, ncomp=None, trim=False, more=False):
         """
