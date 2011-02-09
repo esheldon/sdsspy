@@ -74,3 +74,9 @@ try:
 except:
     sys.stderr.write('sdsspy.util module not loaded\n')
 
+try:
+    # the sandbox may have unstable things in it, ignore
+    # failed import silently
+    from . import sandbox
+except:
+    pass
