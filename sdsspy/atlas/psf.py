@@ -48,44 +48,8 @@ class PSFKL:
     """
     def __init__(self, filename=None, filter=None):
         self.load(filename, filter)
-    def load(self, filename, filter):
-        """
-        Load a PSF KL decomposition from a psField file.  See the docs for the
-        main class PSFKL.
-        """
-        if filename is not None:
-            if filter is None:
-                raise ValueError("Send filename AND filter")
-            if isinstance(filter, (str, unicode)):
-                filternum = sdsspy.util.BANDS[filter]
-            else:
-                filternum = filter
 
-            self.basis = _py_atlas.py_read_kl_basis(filename, filternum+1)
-
-            self.filename=filename
-            self.filter=filter
-            self.filternum = filternum
-        else:
-            self.filename=None
-            self.filter=None
-            self.filternum=None
-            self.basis = None
-
-    def __repr__(self):
-        if self.filename is None:
-            stdout.write("PSFKL: no data loaded\n")
-        else:
-            rep=("PSFKL: SDSS PSF KL Decomposition\n"
-                 "    filename: {filename}\n"
-                 "    filter:   {filter}\n")
-            rep = rep.format(filename=self.filename,
-                             filter=self.filter)
-            return rep
-
-            
-
-    def rec(self, rowc, colc, counts=1.0, ncomp=None, trim=False, more=False):
+    def rec(self, rowc, colc, counts=None, ncomp=None, trim=False, more=False):
         """
         Class:
             PSFKL
@@ -103,7 +67,8 @@ class PSFKL:
                 The row column to create the reconstruction.
         Optional Inputs:
             counts: 
-                The total counts in the image, default 1.
+                Set the total counts in the image, default is to
+                return the image un-normalized.
             ncomp: The number of eigenimages to use.  Default is the
                 number that exists in the file, usually 4.
             trim:
@@ -145,11 +110,9 @@ class PSFKL:
         if trim:
             image = image[10:41, 10:41]
 
-        '''
-        image /= image.sum()
-        if counts != 1.0:
-            image *= counts
-        '''
+        if counts is not None:
+            fac = counts/image.sum()
+            image *= fac
 
         if more:
             out={}
@@ -159,3 +122,41 @@ class PSFKL:
             return out
         else:
             return image
+    def load(self, filename, filter):
+        """
+        Load a PSF KL decomposition from a psField file.  See the docs for the
+        main class PSFKL.
+        """
+        if filename is not None:
+            if filter is None:
+                raise ValueError("Send filename AND filter")
+            if isinstance(filter, (str, unicode)):
+                filternum = sdsspy.util.BANDS[filter]
+            else:
+                filternum = filter
+
+            self.basis = _py_atlas.py_read_kl_basis(filename, filternum+1)
+
+            self.filename=filename
+            self.filter=filter
+            self.filternum = filternum
+        else:
+            self.filename=None
+            self.filter=None
+            self.filternum=None
+            self.basis = None
+
+    def __repr__(self):
+        if self.filename is None:
+            stdout.write("PSFKL: no data loaded\n")
+        else:
+            rep=("PSFKL: SDSS PSF KL Decomposition\n"
+                 "    filename: {filename}\n"
+                 "    filter:   {filter}\n")
+            rep = rep.format(filename=self.filename,
+                             filter=self.filter)
+            return rep
+
+            
+
+
