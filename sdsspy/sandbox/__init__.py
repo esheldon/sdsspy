@@ -12,5 +12,5 @@ Purpose:
 
 """
 
-from . import example
+from . import example, convert, geometry, riseset
 
