@@ -340,8 +340,8 @@ def _read_psfield(fname, **keys):
         raise ValueError("only ask for a single file when reading "
                          "psField KL basis functions")
         fname = fname[0]
-
-    pkl = sdsspy.atlas.PSFKL(fname, filter)
+    verbose=keys.get('verbose',False)
+    pkl = sdsspy.atlas.PSFKL(fname, filter, verbose)
     return pkl
 
 

@@ -15,6 +15,7 @@ Classes:
 
 """
 
+from __future__ import print_function
 import numpy
 import sdsspy
 import _py_atlas
@@ -46,7 +47,8 @@ class PSFKL:
         The C extension for reading PSF KL decompositions.
 
     """
-    def __init__(self, filename=None, filter=None):
+    def __init__(self, filename=None, filter=None, verbose=False):
+        self.verbose=verbose
         self.load(filename, filter)
 
     def rec(self, rowc, colc, counts=None, ncomp=None, trim=False, more=False):
@@ -134,6 +136,9 @@ class PSFKL:
                 filternum = sdsspy.util.FILTERNUM[filter]
             else:
                 filternum = filter
+
+            if self.verbose:
+                print("Reading PSF KL:",filename)
 
             self.basis = _py_atlas.py_read_kl_basis(filename, filternum+1)
 
