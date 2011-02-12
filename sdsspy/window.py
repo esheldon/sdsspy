@@ -73,7 +73,11 @@ class Window():
             verbose=: If True, print info about files read.
 
         Outputs:
-            A dictionary with keys corresponding to the requested types. e.g
+            If a single type is entered, the structure is returned.
+
+            If multiple types are requesteed, a dictionary with keys
+            corresponding to the requested types. e.g
+
                 data = w.read(['flist','bcaps'])
                 data.keys()
                 ['bcaps','flist']
@@ -90,7 +94,10 @@ class Window():
         """
         output = {}
         if isinstance(types, (str,unicode)):
+            is_scalar=True
             types = [types]
+        else:
+            is_scalar=False
 
         if 'flist_rescore' in types:
             rfile = self.name('flist_rescore')
@@ -165,6 +172,8 @@ class Window():
             mess += "%s "% self._types
             raise ValueError(mess)
 
+        if is_scalar:
+            return output[types[0]]
         return output            
 
     def runlist(self, minscore=None, rescore=False):
