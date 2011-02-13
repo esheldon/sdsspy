@@ -77,6 +77,7 @@ import numpy
 
 import esutil
 from esutil.ostools import path_join
+from esutil.numpy_util import where1
 
 import sdsspy
 
@@ -156,6 +157,9 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
     """
 
     flist = file_list(ftype, run, camcol, field, id=id, **keys)
+
+    if len(flist) == 0:
+        return None
 
     lftype = ftype.lower()
     if lftype == 'fpatlas':
@@ -518,6 +522,11 @@ def file_list(ftype, run=None, camcol=None, field=None, **keys):
         _file_list_cache[glob_pattern] = flist
     else:
         flist = _file_list_cache[glob_pattern]
+
+    if len(flist) == 0:
+        verbose=keys.get('verbose',False)
+        if verbose:
+            print("No matches for file pattern:",glob_pattern)
     return flist
 
 def runlist():
@@ -580,7 +589,11 @@ class RunList(SimpleFileCache):
     """
     def load(self, reload=False):
         if not hasattr(RunList, 'data') or reload:
-            RunList.data = read('runList')
+            rl = read('runList')
+            # remove duplicate, bad entry
+            w=where1( (rl['run'] != 5194) | (rl['rerun'] == '301'))
+            rl = rl[w]
+            RunList.data = rl
 
 
 def _check_id_sequences(run,camcol,field):
