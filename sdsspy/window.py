@@ -203,9 +203,7 @@ class Window():
             type = 'flist_rescore'
         else:
             type = 'flist'
-        data = self.read(type)
-
-        flist = data[type]
+        flist = self.read(type)
 
         runs,reruns = flist['run'], flist['rerun']
         if minscore is not None:
