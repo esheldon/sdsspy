@@ -80,6 +80,7 @@ from esutil.ostools import path_join
 from esutil.numpy_util import where1
 
 import sdsspy
+from .util import FILTERNUM, FILTERCHARS
 
 
 def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
@@ -829,3 +830,86 @@ def expand_sdssvars(string_in, **keys):
 
     return string
 
+def array2sqlite(array, filename, tablename, **keys):
+    """
+
+    Convert the input array with fields into an sqlite table.
+    
+    Arrays with 5 elements are assumed to be associated with SDSS bands, and
+    are renamed to col_u, col_g, ..., col_z. Thisis because sqlite does n ot
+    support array columns.  Array columns with more or less than 5 elements are
+    ignored for now.
+
+    Keywords are passed on to the esutil.SqliteConnection.array2table method,
+    e.g the create statement which drops an existing table.
+
+    Parameters
+    ----------
+    array: numpy.ndarray
+        An array with fields, aka recarray.
+    filename: string
+        The sqlite database file name
+    tablename: string
+        The name of the table.
+    create: boolean
+        Clobber existing tables.
+
+    other keywords....
+
+    Requirements
+    ------------
+
+    You need the sqlite3 python package installed, esutil installed.
+    
+    You also need the sqlite3 executable installed.  It is used for
+    efficient "copy" of data into the table.
+
+    """
+
+    s = esutil.sqlite_util.SqliteConnection(filename)
+
+    stdout.write("Creating sqlite input\n")
+    t = _create_sqlite_input(array)
+
+    stdout.write("Writing table '%s'\n" % tablename)
+    s.array2table(t, tablename, **keys)
+
+def _create_sqlite_input(st):
+    bands = ['u','g','r','i','z']
+
+    dtype=[]
+    needs_converting=False
+    for d in st.dtype.descr:
+        name = str( d[0] )
+
+        if len(d) == 3:
+            needs_converting = True
+            dims = d[2]
+            if dims == 5:
+                for filt in FILTERCHARS:
+                    fname = name+'_'+filt
+                    dtype.append((fname, d[1]))
+        else:
+            dtype.append(d)
+
+    if not needs_converting:
+        return st
+
+    t = numpy.zeros(st.size, dtype=dtype)
+    for d in st.dtype.descr:
+        name = str( d[0] )
+
+        if len(d) == 3:
+            dims = d[2]
+            if dims == 5:
+                stdout.write("Splitting column '%s' by filter\n" % name)
+                for filt in FILTERCHARS:
+                    fnum = FILTERNUM[filt]
+                    fname = name+'_'+filt
+                    t[fname] = st[name][:, fnum]
+            else:
+                stdout.write("Ignoring column '%s'\n" % name)
+        else:
+            t[name] = st[name]
+
+    return t
