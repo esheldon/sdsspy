@@ -218,7 +218,7 @@ class Window():
         # using a bigid is not necessary since the same run never ends up in
         # there with two different reruns
 
-        uid, uindex = numpy.unique1d(runs, return_index=True)
+        urun, uindex = numpy.unique(runs, return_index=True)
         runs = runs[uindex]
         reruns = reruns[uindex]
 
