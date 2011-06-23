@@ -5,10 +5,14 @@ Module:
 Functions:
     photoid(run,rerun,camcol,field,id)
     photoid(array with fields):
-        Create a 65-bit index from the id info.
+        Create a 64-bit index from the id info.
     photoid_extract(superid): Extract run,rerun,camcol,field,id from
         a super id created using the photoid() function.
 
+    objid(run,rerun,camcol,field,id,skyversion=2)
+        similar to photoid, but this is the id used in the CAS.
+        You can not just read off the run,rerun etc by looking
+        at the id because bit shifts are used.
 
     nmgy2mag(nmgy, ivar=None):
         Convert nano-maggies to log magnitude.  If ivar is sent, the tuple
@@ -216,7 +220,97 @@ def photoid_extract(photoid, old=False):
     return run,rerun,camcol,field,id
 
 
+def objid(*args, **keys):
+    """
+    Name:
+        objid
+    Purpose:
 
+        Convert run,rerun,camcol,field,id (and possibly a "sky version") to a
+        single 64-bit superid used in the CAS. Unlike photoid, one cannot
+        simply read of the run,rerun,camcol,field,id values by looking at the
+        id.
+
+    Usage:
+        oid = objid(run,rerun,camcol,field,id)
+        oid = objid(recarray)
+    Inputs:
+        run,rerun,camcol,field,id: SDSS id info.
+            You must enter at least run,rerun
+
+        OR
+
+        recarray: An array with the fields run,rerun,camcol,field,id
+
+    Keywords:
+        skyversion: A sky version, default 2.  You should never
+            have to set this.
+
+    """
+
+    def objid_usage():
+        raise ValueError("Send either run,rerun,camcol,field,id or "
+                         "a recarray with those fields")
+
+    nargs = len(args)
+    if nargs == 0:
+        objid_usage()
+
+    skyversion=keys.get('skyversion',2)
+    if nargs == 1:
+        arg1 = args[0]
+        if isinstance(arg1, numpy.ndarray):
+            if arg1.dtype.names is not None:
+                if 'run' in arg1.dtype.names:
+                    return objid(arg1['run'],arg1['rerun'],arg1['camcol'],
+                                 arg1['field'],arg1['id'], skyversion=skyversion)
+                elif 'RUN' in arg1.dtype.names:
+                    return objid(arg1['RUN'],arg1['RERUN'],arg1['CAMCOL'],
+                                 arg1['FIELD'],arg1['ID'], skyversion=skyversion)
+                else:
+                    raise ValueError("run not found in input recarray")
+            else:
+                objid_usage()
+        else:
+            objid_usage()
+
+    elif nargs != 5:
+        objid_usage()
+
+    run,rerun,camcol,field,id = args
+
+    dt = 'i8'
+    sky    = numpy.array(skyversion, ndmin=1, dtype=dt, copy=False)
+    run    = numpy.array(run, ndmin=1, dtype=dt, copy=False)
+    rerun  = numpy.array(rerun, ndmin=1, dtype=dt, copy=False)
+    camcol = numpy.array(camcol, ndmin=1, dtype=dt, copy=False)
+    field  = numpy.array(field, ndmin=1, dtype=dt, copy=False)
+    id     = numpy.array(id, ndmin=1, dtype=dt, copy=False)
+
+
+    wbad, = where(  (sky < 0)     | (sky >= 16) 
+                  | (rerun < 0)   | (rerun >= 2**11)
+                  | (run < 0)     | (run >= 2**16)
+                  | (camcol < 1)  | (camcol > 6) 
+                  | (field < 0)   | (field >= 2**12) 
+                  | (id < 0)      | (id >= 2**16) )
+
+    if wbad.size > 0:
+        raise ValueError("inputs out of bounds")
+
+    superid = numpy.zeros(run.size, dtype=dt)
+
+    firstfield = numpy.zeros(run.size, dtype=dt)
+    superid = (superid
+               | (sky << 59)
+               | (rerun << 48)
+               | (run << 32)
+               | (camcol << 29)
+               | (firstfield << 28)
+               | (field << 16)
+               | (id << 0) )
+
+    return superid
 
 def nmgy2mag(nmgy, ivar=None):
     """
