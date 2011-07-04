@@ -472,6 +472,77 @@ def nmgy2lups(nmgy, ivar=None, band=None):
     else:
         return lups
 
+def lups2nmgy(lups, err=None, band=None):
+    """
+    Name:
+        lups2nmgy
+    Purpose:
+        Convert from luptitudes to nano-maggies. The default parameters 
+        for SDSS are used.
+    Calling Sequence:
+        nmgy= lups2nmgy(lups)
+        nmgy,ivar= lups2nmgy(lups,err=err)
+    Inputs:
+        lups: The luptitudes as asinh values. Can either be a [5,Nobj] array or
+         an array for a single band, in which case the band must
+         be given.
+    Keywords:
+       err: uncertainty on the lups.  Must have the same shape as nmgy.
+            If err is sent, then a tuple (nmgy,ivar) is returned.
+    Outputs:
+         SDSS nanomaggies. If err= is set then the inverse variance is returned
+         as well as (nmgy,ivar)
+    """
+    s = lups.shape
+    if err is not None:
+        serr = err.shape
+        if len(serr) != len(s):
+            raise ValueError("err and lups must be same shape")
+        for i in xrange(len(s)):
+            if serr[i] != s[i]:
+                raise ValueError("err and lups must be same shape")
+
+    if len(s) == 2:
+        if s[1] != 5:
+            raise ValueError("Either enter a 1-d array or a (nobj, 5) array")
+        nband = 5
+        band=[0,1,2,3,4]
+    else:
+        if band is None:
+            raise ValueError("For 1-d input, specify a band in [0,4]")
+        nband = 1
+        try:
+            if len(band) != 1:
+                raise ValueError("for 1-d input, enter a single band")
+        except:
+            band = [band]
+
+    # make sure band values makes sense
+    for b in band:
+        if b not in [0,1,2,3,4]:
+            raise ValueError("band must be in [0,4]")
+
+    nmgy = numpy.array( lups, copy=True )
+    nmgy[:] = -9999.0
+    if err is not None:
+        ivar = numpy.array(err, copy=True)
+        ivar[:] = -9999.0
+
+    for b in band:
+        if nband == 1:
+            nmgy[:] = _lups2nmgy_1band(lups, b)
+            if err is not None:
+                ivar[:] = _luperr2ivar_1band(lups, err, b)
+        else:
+            nmgy[:,b] = _lups2nmgy_1band(lups[:,b], b)
+            if err is not None:
+                ivar[:,b] = _luperr2ivar_1band(lups[:,b], err[:,b], b)
+
+    if err is not None:
+        return nmgy, ivar
+    else:
+        return nmgy
+
 _bvalues=[1.4, 0.9, 1.2, 1.8, 7.4]
 _log10 = numpy.log(10.0)
 
@@ -491,6 +562,17 @@ def _ivar2luperr_1band(nmgy, ivar, band):
         lups_err[w] = 2.5*terr
         lups_err[w] /= 0.2*b*_log10*numpy.sqrt(1.0 + (5.0*nmgy[w]/b)**2 )
     return lups_err
+
+def _lups2nmgy_1band(lups, band):
+    b=_bvalues[band]
+    nmgy= b/5.*numpy.sinh(-lups*numpy.log(10.)/2.5-ln10_min10-numpy.log(b))
+    return nmgy
+
+def _luperr2ivar_1band(lups, err, band):
+    b=_bvalues[band]
+    df= b/5.*numpy.cosh(-lups*numpy.log(10.)/2.5-ln10_min10-numpy.log(b))\
+        *err*numpy.log(10.)/2.5
+    return 1./df**2.
 
 def make_cmodelflux(objs, doivar=True):
     """
