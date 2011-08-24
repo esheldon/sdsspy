@@ -46,7 +46,6 @@ ATLAS_IMAGE* py_load_atlas_images(const char* filename, int id) {
         PyErr_Format(PyExc_IOError, "In file %s unknown error reading id %d", filename, id);
         return NULL;
     }
-    printf("fd: %d\n", fits->fd);
     phFitsDel(fits);  
   
     // no atlas image for this object

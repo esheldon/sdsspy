@@ -58,11 +58,11 @@ phFitsDel(FITS *fits)
    if(fits != NULL) {
       ret=close(fits->fd);
       if (ret != 0) {
-          printf("Failed to close file, hd: %d\n", fits->fd);
+          printf("Failed to close file: %d\n", fits->fd);
       }
       ret=close(fits->hfd);
       if (ret != 0) {
-          printf("Failed to close file, hfd: %d\n", fits->hfd);
+          printf("Failed to close file: %d\n", fits->hfd);
       }
       shFree(fits);
    }

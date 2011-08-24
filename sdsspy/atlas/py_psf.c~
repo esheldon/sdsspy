@@ -18,7 +18,7 @@ PyObject* py_read_kl_basis(const char* filename, int ext) {
 
     import_array();
 
-    basis = py_load_kl_basis(filename, ext);
+    basis = py_load_psField(filename, ext);
     if (basis == NULL) {
         return NULL;
     }

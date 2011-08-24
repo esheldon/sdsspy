@@ -539,11 +539,11 @@ def _glob_pattern(pattern):
 
 def _glob_hdfs_pattern(pattern):
     # must make an external call
-    command = "hadoop fs -ls "+pattern+" | awk 'NF==8 {print $8}'"
+    command = "hadoop fs -ls "+pattern+" | awk '{print $8}'"
     exit_code,stdo,stde=esutil.ostools.exec_process(command)
     if exit_code != 0:
         raise ValueError("Error executing command '%s': '%s'" % (command,stde))
-
+    
     fl = stdo.split('\n')
     fl = ['hdfs://'+f for f in fl if f != '']
 
