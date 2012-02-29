@@ -18,7 +18,6 @@ from sys import stdout, stderr
 
 import numpy
 import esutil
-import mangle
 
 
 class Window():
@@ -133,6 +132,7 @@ class Window():
             output['bindx'] = esutil.io.read(fname, ext=1, lower=True, verbose=verbose)
 
         if 'balkans' in types:
+            import sdss_mangle
             if verbose:
                 stdout.write('Creating balkans\n')
             dtype = output['blist'].dtype.descr
@@ -150,16 +150,15 @@ class Window():
                 tmp_balkan = balkans[i]
                 ncaps = tmp_balkan['ncaps']
                 # 'caps' is object array
-                #tmp_balkan['caps'] = mangle.construct_cap(ncaps)
                 tmp_balkan['caps'] = \
                     output['bcaps'][tmp_balkan['icap']:tmp_balkan['icap']+ncaps]
                 #for j in range(ncaps):
                     #tmp_balkan['caps'][j] = output['bcaps'][tmp_balkan['icap']+j]
 
 
-                mangle.set_use_caps(tmp_balkan, 
-                                    range(tmp_balkan['ncaps']), 
-                                    allow_doubles=True)
+                sdss_mangle.set_use_caps(tmp_balkan, 
+                                         range(tmp_balkan['ncaps']), 
+                                         allow_doubles=True)
 
                 # gotta do this or the memory blows up, and the garbage collector
                 # really slows things down
