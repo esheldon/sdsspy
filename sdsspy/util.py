@@ -1,8 +1,10 @@
 """
-Module:
+Module
+------
     sdsspy.util
 
-Functions:
+Functions
+---------
     photoid(run,rerun,camcol,field,id)
     photoid(array with fields):
         Create a 64-bit index from the id info.
@@ -36,10 +38,15 @@ Functions:
         the SDSS pipeline.  It is slightly more precise to correct
         the fluxes before converting to mags.
  
+classes
+-------
+Family:
+    A class to find the family of deblended objects
+
 
 """
 import numpy
-from numpy import log10, log, sqrt, where
+from numpy import log10, log, sqrt, where, array, concatenate
 
 FILTERNUMS = [0,1,2,3,4]
 FILTERCHARS = ['u','g','r','i','z']
@@ -729,4 +736,116 @@ def sdss_wrap(ra):
 
     return ranew
 
+
+class Family(object):
+    """
+    Reconstruct the family list for an object
+
+    examples
+    --------
+    fam=Family(struct, index)
+
+    Get the indices into struct for each type of family member
+
+        children=fam.get_children()
+        parent=fam.get_parent()
+        bright=fam.get_bright()
+
+        ra=struct['ra'][children]
+
+    """
+    def __init__(self, struct, index):
+        self.struct=struct
+        self.index=index
+        self.obj=self.struct[index]
+
+        wfield,=where(struct['field'] == struct['field'][index])
+        self.wfield=wfield
+
+        self.find_family()
+
+    def __repr__(self):
+        lines=[]
+        lines.append("  children: %s" % self.wchild)
+        lines.append("  parent:   %s" % self.wparent)
+        lines.append("  bright:   %s" % self.wbright)
+        return "\n".join(lines)
+
+    def get_all(self):
+        return concatenate( (self.wbright, self.wparent, self.wchild) )
+
+    def get_children(self):
+        return self.wchild
+    def get_parent(self):
+        return self.wparent
+    def get_bright(self):
+        return self.wbright
+
+    def empty_array(self):
+        return array([], dtype='i8')
+
+    def find_family(self):
+        """
+        work our way up to a parent, possibly a bright parent
+        """
+
+        obj=self.struct[self.index]
+
+        fstruct=self.struct[self.wfield]
+
+        wfindex,=where(fstruct['id']==obj['id'])
+        findex=wfindex[0]
+
+        # indices are in the field at this point
+        wbright=self.empty_array()
+        if obj['parent'] == -1:
+            # this is a parent
+            if obj['nchild']==1:
+                # it is a bright parent
+                wbright=array([findex], dtype='i8')
+                wparent,=where(fstruct['parent']==obj['id'])
+                if wparent.size==0:
+                    # the faint version simply isn't here
+                    # we can go no further
+                    wchild=self.empty_array()
+                else:
+                    wchild,=where(fstruct['parent']==fstruct['id'][wparent])
+            else:
+                # normal parent
+                wparent=array([findex], dtype='i8')
+                wchild,=where(fstruct['parent']==fstruct['id'][wparent])
+        else:
+            # this is a child
+            if obj['nchild'] != 0:
+                # this also has children: thus it is is the faint version of a
+                # bright object.  We call it the parent
+                wparent=array([findex], dtype='i8')
+
+                # the bright must be the parent of this object
+                wbright,=where(fstruct['id']==obj['parent'])
+
+                # and children are now its children
+                wchild,=where(fstruct['parent']==obj['id'])
+            else:
+                # normal child
+                wparent,=where(fstruct['id']==obj['parent'])
+                wchild,=where(fstruct['parent']==obj['parent'])
+
+                # we can try to find a bright parent if the parent
+                # is found
+                if wparent.size > 0:
+                    if fstruct['parent'][wparent] != -1:
+                        # a bright parent does exist
+                        wbright,=where(fstruct['id']==fstruct['parent'][wparent])
+                       
+        if wbright.size > 0:
+            wbright=self.wfield[wbright]
+        if wparent.size > 0:
+            wparent=self.wfield[wparent]
+        if wchild.size > 0:
+            wchild=self.wfield[wchild]
+
+        self.wbright=wbright
+        self.wparent=wparent
+        self.wchild=wchild
 

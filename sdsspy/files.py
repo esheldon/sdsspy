@@ -68,7 +68,7 @@
 """
 import os
 import sys
-from sys import stdout
+from sys import stdout, stderr
 
 import re
 import glob
@@ -311,7 +311,7 @@ def _read_yanny(fname, **keys):
         fname=fname[0]
     verbose = keys.get('verbose',False)
     if verbose:
-        stdout.write("Reading file: '%s'\n" % fname)
+        stderr.write("Reading file: '%s'\n" % fname)
         
     if 'runList' in fname or 'sdssFileTypes' in fname:
         return sdsspy.yanny.readone(fname)
@@ -371,7 +371,7 @@ def _read_atlas(flist, **keys):
         id=id[0]
 
     if verbose:
-        print "Reading id %s from '%s'" % (id,fname)
+        stderr.write("Reading id %s from '%s'\n" % (id,fname))
     imdict=atlas.read_atlas(fname, id, trim=trim)
     return imdict
 
@@ -528,7 +528,7 @@ def file_list(ftype, run=None, camcol=None, field=None, **keys):
     if len(flist) == 0:
         verbose=keys.get('verbose',False)
         if verbose:
-            print "No matches for file pattern:",glob_pattern
+            stderr.write("No matches for file pattern: %s\n" % glob_pattern)
     return flist
 
 def _glob_pattern(pattern):
@@ -887,10 +887,10 @@ def array2sqlite(array, filename, tablename, **keys):
 
     s = esutil.sqlite_util.SqliteConnection(filename)
 
-    stdout.write("Creating sqlite input\n")
+    stderr.write("Creating sqlite input\n")
     t = _create_sqlite_input(array)
 
-    stdout.write("Writing table '%s'\n" % tablename)
+    stderr.write("Writing table '%s'\n" % tablename)
     s.array2table(t, tablename, **keys)
 
 def _create_sqlite_input(st):
@@ -921,13 +921,13 @@ def _create_sqlite_input(st):
         if len(d) == 3:
             dims = d[2]
             if dims == 5:
-                stdout.write("Splitting column '%s' by filter\n" % name)
+                stderr.write("Splitting column '%s' by filter\n" % name)
                 for filt in FILTERCHARS:
                     fnum = FILTERNUM[filt]
                     fname = name+'_'+filt
                     t[fname] = st[name][:, fnum]
             else:
-                stdout.write("Ignoring column '%s'\n" % name)
+                stderr.write("Ignoring column '%s'\n" % name)
         else:
             t[name] = st[name]
 

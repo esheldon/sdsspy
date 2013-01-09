@@ -15,7 +15,7 @@ Classes:
 
 """
 
-from __future__ import print_function
+from sys import stderr
 import numpy
 import sdsspy
 import _py_atlas
@@ -100,9 +100,7 @@ class PSFKL:
 
         for j in xrange(ncomp):
             cmat = self.basis['c'][j]
-            #print "j=",j
             for i in xrange(nb):
-                #print "    ",i % nrow_b, i//nrow_b
                 ecoeffs[j] += cmat[i % nrow_b, i//nrow_b] * coeffs[i]
 
         image = ecoeffs[0]*self.basis['eigen'][0]
@@ -138,7 +136,7 @@ class PSFKL:
                 filternum = filter
 
             if self.verbose:
-                print("Reading PSF KL:",filename)
+                print >>stderr,"Reading PSF KL:",filename
 
             self.basis = _py_atlas.py_read_kl_basis(filename, filternum+1)
 
