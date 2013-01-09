@@ -749,17 +749,18 @@ class Family(object):
 
         children=fam.get_children()
         parent=fam.get_parent()
-        bright=fam.get_bright()
+        grandparent=fam.get_grandparent()
 
         ra=struct['ra'][children]
 
     """
-    def __init__(self, struct, index):
+    def __init__(self, struct, index, verbose=False):
         self.struct=struct
         self.index=index
+        self.verbose=verbose
         self.obj=self.struct[index]
 
-        wfield,=where(struct['field'] == struct['field'][index])
+        wfield,=where(struct['field'] == self.obj['field'])
         self.wfield=wfield
 
         self.find_family()
@@ -768,84 +769,104 @@ class Family(object):
         lines=[]
         lines.append("  children: %s" % self.wchild)
         lines.append("  parent:   %s" % self.wparent)
-        lines.append("  bright:   %s" % self.wbright)
+        lines.append("  grandparent:   %s" % self.wgrandparent)
         return "\n".join(lines)
 
     def get_all(self):
-        return concatenate( (self.wbright, self.wparent, self.wchild) )
+        return concatenate( (self.wgrandparent, self.wparent, self.wchild) )
 
     def get_children(self):
         return self.wchild
     def get_parent(self):
         return self.wparent
-    def get_bright(self):
-        return self.wbright
+    def get_grandparent(self):
+        return self.wgrandparent
 
     def empty_array(self):
         return array([], dtype='i8')
 
     def find_family(self):
         """
-        work our way up to a parent, possibly a bright parent
+        work our way up to a parent, possibly a grandparent parent
         """
 
         obj=self.struct[self.index]
 
         fstruct=self.struct[self.wfield]
 
-        wfindex,=where(fstruct['id']==obj['id'])
-        findex=wfindex[0]
+        findex,=where(fstruct['id']==obj['id'])
 
         # indices are in the field at this point
-        wbright=self.empty_array()
-        if obj['parent'] == -1:
+        wgrandparent=self.empty_array()
+        if obj['nchild'] > 0:
             # this is a parent
+
             if obj['nchild']==1:
-                # it is a bright parent
-                wbright=array([findex], dtype='i8')
+                # it is a grandparent parent
+                wgrandparent=findex.copy()
+                # the real parent is the one who has me listed as parent
                 wparent,=where(fstruct['parent']==obj['id'])
                 if wparent.size==0:
                     # the faint version simply isn't here
                     # we can go no further
                     wchild=self.empty_array()
                 else:
+                    # now the children have this parent listed
                     wchild,=where(fstruct['parent']==fstruct['id'][wparent])
+
+                mess='is grandparent parent with %s children' % obj['nchild']
             else:
                 # normal parent
-                wparent=array([findex], dtype='i8')
-                wchild,=where(fstruct['parent']==fstruct['id'][wparent])
+                wparent=findex.copy()
+
+                # I may have a grandparent version
+                wgrandparent,=where(fstruct['id'] == obj['parent'])
+
+                # children list me as parent
+                wchild,=where(fstruct['parent']==obj['id'])
+                mess='is parent with %s children' % obj['nchild']
         else:
             # this is a child
             if obj['nchild'] != 0:
                 # this also has children: thus it is is the faint version of a
-                # bright object.  We call it the parent
-                wparent=array([findex], dtype='i8')
+                # grandparent object.  We call it the parent
+                wparent=findex.copy()
 
-                # the bright must be the parent of this object
-                wbright,=where(fstruct['id']==obj['parent'])
+                # the grandparent must be the parent of this object
+                wgrandparent,=where(fstruct['id']==obj['parent'])
 
                 # and children are now its children
                 wchild,=where(fstruct['parent']==obj['id'])
+                mess='is child of %s with %s children' % (obj['parent'],obj['nchild'])
             else:
                 # normal child
                 wparent,=where(fstruct['id']==obj['parent'])
                 wchild,=where(fstruct['parent']==obj['parent'])
 
-                # we can try to find a bright parent if the parent
+                # we can try to find a grandparent parent if the parent
                 # is found
                 if wparent.size > 0:
                     if fstruct['parent'][wparent] != -1:
-                        # a bright parent does exist
-                        wbright,=where(fstruct['id']==fstruct['parent'][wparent])
+                        # a grandparent parent does exist
+                        wgrandparent,=where(fstruct['id']==fstruct['parent'][wparent])
+                mess="is child with %s siblings" % (wchild.size-1)
                        
-        if wbright.size > 0:
-            wbright=self.wfield[wbright]
+
+        if wgrandparent.size > 0:
+            wgrandparent=self.wfield[wgrandparent]
         if wparent.size > 0:
             wparent=self.wfield[wparent]
         if wchild.size > 0:
             wchild=self.wfield[wchild]
 
-        self.wbright=wbright
+        self.wgrandparent=wgrandparent
         self.wparent=wparent
         self.wchild=wchild
 
+        if self.verbose:
+            print mess
+
+        if self.verbose > 1:
+            print 'grandparent:  ',self.wgrandparent
+            print 'parent:       ',self.wparent
+            print 'children:     ',self.wchild
