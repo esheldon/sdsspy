@@ -107,7 +107,7 @@ def photoid(*args, **keys):
 
     if nargs == 1:
         arg1 = args[0]
-        if isinstance(arg1, numpy.ndarray):
+        if hasattr(arg1, 'dtype'):
             # see if this has the fields, if so call sphotoid
             names = arg1.dtype.names
             if names is not None:
@@ -167,11 +167,16 @@ def sphotoid(arr, old=False):
 
     # we allow subsets from the left
     for name in ['run','rerun','camcol','field','id']:
+        name_upp=name.upper()
         if name in names:
-            tarr = numpy.array(arr[name], dtype='i8', copy=False, ndmin=1)
-            args.append(tarr)
+            tname=name
+        elif name_upp in names:
+            tname=name_upp
         else:
             break
+
+        #tarr = numpy.array(arr[tname], dtype='i8', copy=False, ndmin=1)
+        args.append(arr[tname])
 
     if len(args) == 0:
         raise ValueError("the struct must contain at least 'run'")
@@ -275,7 +280,9 @@ def objid(*args, **keys):
     skyversion=keys.get('skyversion',2)
     if nargs == 1:
         arg1 = args[0]
-        if isinstance(arg1, numpy.ndarray):
+        #if isinstance(arg1, numpy.ndarray):
+
+        if hasattr(arg1, 'dtype'):
             if arg1.dtype.names is not None:
                 if 'run' in arg1.dtype.names:
                     return objid(arg1['run'],arg1['rerun'],arg1['camcol'],
