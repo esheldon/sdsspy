@@ -24,6 +24,6 @@ them with
 
 import atlas
 from atlas import read_atlas
-
+from atlas import NoAtlasImageError
 import psf
 from psf import PSFKL

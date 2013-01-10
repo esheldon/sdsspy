@@ -178,21 +178,24 @@ def sphotoid(arr, old=False):
     args = tuple(args)
     return photoid( *args, old=old )
 
-def photoid_extract(photoid, old=False):
+def photoid_extract(photoid, as_tuple=False, old=False):
     """
-    Name:
-        photoid_extract
-    Purpose:
-        Extract run,rerun,camcol,field,id from a super id created using
-        the photoid() function.
-    Usage:
-        run,rerun,camcol,field,id = photoid_extract(superid)
-    Inputs:
-        superid: A super id created using photoid()
-    Outputs:
-        The SDSS id info.
-    Keywords:
-        old: If true, assume the old exponents were used.
+
+    Extract run,rerun,camcol,field,id from a photoid 
+    
+    By default Returns a dictionary keyed by run,rerun,...
+
+    See the photoid() function for creating these super ids.
+
+    parameters
+    ----------
+    superid: 
+        A super id created using photoid().  Can be an array.
+    as_tuple: bool, optional
+        If True, return (run,rerun,camcol,field,id) instead
+        of a dictionary
+    old: bool, optional
+        Assum the old version of exponents were used.
     """
     if not old:
         pvals = [13,9,8,4,0]
@@ -224,7 +227,12 @@ def photoid_extract(photoid, old=False):
         camcol*ten**(pvals[2]-pvals[4]) - \
         field*ten**(pvals[3]-pvals[4])
 
-    return run,rerun,camcol,field,id
+    if as_tuple:
+        return run,rerun,camcol,field,id
+    else:
+        return {'run':run,'rerun':rerun,
+                'camcol':camcol,'field':field,
+                'id':id}
 
 
 def objid(*args, **keys):
@@ -263,6 +271,7 @@ def objid(*args, **keys):
     if nargs == 0:
         objid_usage()
 
+    is_scalar = numpy.isscalar(args[0])
     skyversion=keys.get('skyversion',2)
     if nargs == 1:
         arg1 = args[0]
@@ -307,17 +316,44 @@ def objid(*args, **keys):
 
     superid = numpy.zeros(run.size, dtype=dt)
 
-    firstfield = numpy.zeros(run.size, dtype=dt)
+    first_field = numpy.zeros(run.size, dtype=dt)
     superid = (superid
                | (sky << 59)
                | (rerun << 48)
                | (run << 32)
                | (camcol << 29)
-               | (firstfield << 28)
+               | (first_field << 28)
                | (field << 16)
                | (id << 0) )
 
+    if is_scalar:
+        superid = superid[0]
     return superid
+
+def objid_extract(obj_id, full=False):
+    masks={'sky_version':0x7800000000000000,
+           'rerun':0x07FF000000000000,
+           'run':0x0000FFFF00000000,
+           'camcol':0x00000000E0000000,
+           'first_field':0x0000000010000000,
+           'field':0x000000000FFF0000,
+           'id':0x000000000000FFFF}
+
+    run=(obj_id & masks['run']) >> 32
+    rerun=(obj_id & masks['rerun']) >> 48
+    camcol=(obj_id & masks['camcol']) >> 29
+    field=(obj_id & masks['field']) >> 16
+    id=(obj_id & masks['id']) >> 0
+    sky_version=(obj_id & masks['sky_version']) >> 59
+    first_field=(obj_id & masks['first_field']) >> 28
+
+    return {'run':run,
+            'rerun':rerun,
+            'camcol':camcol,
+            'field':field,
+            'id':id,
+            'first_field':first_field,
+            'sky_version':sky_version}
 
 def nmgy2mag(nmgy, ivar=None):
     """

@@ -9,13 +9,19 @@
 
     Some Useful Functions. 
 
-        read(ftype, run=None, camcol=None, field=None, id=None, **keys)
+        read(ftype, **keys)
             Read an SDSS file given the input file type and id info
+            Id info can be 
+                run=, rerun=, camcol=...
+            or
+                photoid=
+            or
+                objid=
 
-        filename(ftype, run=None, camcol=None, field=None, **keys)
+        filename(ftype, **keys)
             Generate an SDSS file name from input file type and id info
 
-        filedir(ftype, run=None, camcol=None, **keys)
+        filedir(ftype, **keys)
             Generate an SDSS dir path from input file type and id info
 
         filespec(ftype)
@@ -23,7 +29,7 @@
             read from
                 $SDSSPY_DIR/share/sdssFileTypes.par
 
-        file_list(ftype, run=None, camcol=None, field=None, **keys)
+        file_list(ftype, **keys)
             Get lists of SDSS files based on id info.
 
         runlist()
@@ -92,10 +98,17 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
     Purpose:
         Read an SDSS file given the input file type and id info
     Calling Sequence:
-        data=read(ftype, run=None, camcol=None, field=None, id=None, **keys)
+        Send the run,rerun,camcol etc.
+            data=read(ftype, run=None, camcol=None, field=None, id=None, **keys)
+        or send a skyserver objid
+            data=read(ftype, objid=, **keys)
+        or send a photoid
+            data=read(ftype, photoid=, **keys)
 
     Example:
         data=read('psField', 756, 3, 125)
+        data=read('psField', photoid=7560301301250035)
+        data=read('psField', objid=1237648721210834979)
         imdict=read('fpAtlas', 756, 3, 125, 125, trim=True)
 
 
@@ -119,6 +132,11 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
             SDSS field identifier
         id:
             SDSS id within a field.  E.g. the atlas reader requires an id.
+        photoid: super id
+            see sdsspy.util.photoid
+        objid: super id
+            see sdsspy.util.objid
+
         filter:
             SDSS filter id, such as 'u','g','r','i','z'.  You can also send
             an index [0,5] representing those.
@@ -196,7 +214,12 @@ def filename(ftype, run=None, camcol=None, field=None, **keys):
     Purpose:
         Generate an SDSS file name from input file type and id info
     Calling Sequence:
-        fname=filename(ftype, run=None, camcol=None, field=None, **keys)
+        Send the run,rerun,camcol etc.
+            fname=filename(ftype, run=None, camcol=None, field=None, **keys)
+        or send a photoid
+            fname=filename(ftype, photoid=, **keys)
+        or send a skyserver objid
+            fname=filename(ftype, objid=, **keys)
 
     Example:
         filename('psField', 756, 3, 125)
@@ -228,6 +251,12 @@ def filename(ftype, run=None, camcol=None, field=None, **keys):
             You normally don't have to specify the rerun, it can typically
             be determined from the run list.
 
+        photoid: super id
+            see sdsspy.util.photoid
+        objid: super id
+            see sdsspy.util.objid
+
+
     Other Keywords:
         These will probably be specific to a given file type. As an example:
         id=: SDSS id within a field.  Some user-defined file type may depend
@@ -246,7 +275,12 @@ def filedir(ftype, run=None, camcol=None, **keys):
     Purpose:
         Generate an SDSS dir path from input file type and id info
     Calling Sequence:
-        fname=filedir(ftype, run=None, camcol=None, **keys)
+        Send the run,rerun,camcol etc.
+            dir=filedir(ftype, run=None, camcol=None, **keys)
+        or send a photoid
+            dir=filedir(ftype, photoid=, **keys)
+        or send a skyserver objid
+            dir=filedir(ftype, objid=, **keys)
 
     Example:
         filedir('psField', 756, 3)
@@ -356,8 +390,16 @@ def _read_atlas(flist, **keys):
     id = keys.get('id', None)
     verbose=keys.get('verbose', False)
 
-    if id is None:
-        raise ValueError("You must enter id(s) to read fpAtlas files")
+    if 'photoid' in keys:
+        ids=sdsspy.util.photoid_extract(keys['photoid'])
+        id=ids['id']
+    elif 'objid' in keys:
+        ids=sdsspy.util.objid_extract(keys['objid'])
+        id=ids['id']
+    else:
+        id=keys.get('id',None)
+        if id is None:
+            raise ValueError("You must enter id(s) to read fpAtlas files")
 
     if len(flist) > 1:
         raise ValueError("You can only read from one atlas image at a "
@@ -442,7 +484,12 @@ def file_list(ftype, run=None, camcol=None, field=None, **keys):
     Purpose:
         Get lists of SDSS files based on id info.
     Calling Sequence:
-        fl = file_list(ftype, run=None, camcol=None, field=None, **keys)
+        Send the run,rerun,camcol etc.
+            fl=file_list(ftype, run=None, camcol=None, field=None, **keys)
+        or send a photoid
+            fl=file_list(ftype, photoid=, **keys)
+        or send a skyserver objid
+            fl=file_list(ftype, objid=, **keys)
 
     Examples:
         # get atlas file for a given run, camcol, and field
@@ -772,6 +819,17 @@ def tostring(val, nmin=None, nmax=None):
 def expand_sdssvars(string_in, **keys):
 
     string = string_in
+
+    if 'objid' in keys:
+        objid=keys['objid']
+        ids=sdsspy.util.objid_extract(objid)
+        for k in ids:
+            keys[k] = ids[k]
+    elif 'photoid' in keys:
+        photoid=keys['photoid']
+        ids=sdsspy.util.photoid_extract(photoid)
+        for k in ids:
+            keys[k] = ids[k]
 
     # this will expand all environment variables, e.g. $PHOTO_SWEEP
     # if they don't exist, the result will be incomplete
