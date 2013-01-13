@@ -14,11 +14,12 @@ class Astrom(object):
 
     dependencies
     ------------
-    numpy
-    You need the asTrans file for the run of interest.
-
-    For the inverse transforms from ra,dec to pixels you need
-    scipy
+    * numpy
+    * You need the asTrans file for the run of interest.
+    * For the inverse transforms from ra,dec to pixels you need
+      scipy.  This is only imported if you attempt the inversion,
+      so if you don't need the inversion you don't need scipy
+      for import.
     """
     def __init__(self, run, camcol, filter):
         from . import util
@@ -171,6 +172,9 @@ class Astrom(object):
 
     def munu2pix(self, field, mu, nu, rmi=0.3):
         """
+        Convert between SDSS great circle coordinates and
+        pixel coordinates.
+
         Solve for the row,col that are roots of the equation
 
             row,col -> mu,nu
