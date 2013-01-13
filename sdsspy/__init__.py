@@ -13,14 +13,15 @@ Modules:
         id numbers to strings, etc.
     flags:
         Get SDSS flag values by name, e.g. target flags, etc.
-
     window:
         Tools for working with the SDSS window function, as well as getting
         lists of runs that have certain properties.
-
+    astrom:
+        Astrom class to convert between pixel and sky coordinates.
     yanny:
         tools for working with yanny parameter files.
-
+    family:
+        A class to assemble the family of a blended object.
     util:
         Utilities for working with SDSS data, such as flux to magnitude
         transformations, etc.
@@ -78,5 +79,10 @@ try:
     from . import astrom
 except:
     sys.stderr.write('sdsspy.astrom module not loaded\n')
+
+try:
+    from . import family
+except:
+    sys.stderr.write('sdsspy.family module not loaded\n')
 
 

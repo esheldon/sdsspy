@@ -80,6 +80,7 @@ import re
 import glob
 
 import numpy
+from numpy import where
 
 import esutil
 from esutil.ostools import path_join
@@ -856,8 +857,11 @@ def expand_sdssvars(string_in, **keys):
             if run is not None:
                 try:
                     rerun = find_rerun(run)
-                except:
-                    rerun = None
+                except ValueError as e:
+                    err=str(e) + (", there may be no such run but you "
+                                  "might try sending the rerun")
+                    raise ValueError(err)
+
         if rerun is None:
             # try to determine rerun
             raise ValueError("rerun keyword must be sent: '%s'" % string)
