@@ -779,6 +779,43 @@ def sdss_wrap(ra):
 
     return ranew
 
+def read_parent(**keys):
+    """
+    Read in a photoObj structure for the parent of the input object
+
+    You must enter as keywords objid or photoid or run,rerun,camcol,field,id or
+    a structure with those.
+    """
+    fam=read_family(**keys)
+    parent=fam.get_parent()
+    if parent.size == 0:
+        raise ValueError("Could not read parent")
+    return fam.data[parent[0]]
+
+def read_family(**keys):
+    """
+    Given the input ids, find the family.
+    
+    Returns a Family object.  Reads the photoobj files to get
+    the data and find the family.
+
+    You must enter as keywords objid or photoid or run,rerun,camcol,field,id or
+    a structure with those.
+
+    """
+    import sdsspy
+    data=sdsspy.read('photoObj',lower=True, **keys)
+    if data is None:
+        raise ValueError("failed to read any photoObj files for this id")
+
+    ids=get_id_info(**keys)
+    pids=photoid(data)
+    index,=where(pids == ids['photoid'])
+    if index.size == 0:
+        raise ValueError("result doesn't contain object?")
+    fam=Family(data, index[0])
+
+    return fam
 
 class Family(object):
     """
@@ -797,13 +834,13 @@ class Family(object):
         ra=struct['ra'][children]
 
     """
-    def __init__(self, struct, index, verbose=False):
-        self.struct=struct
+    def __init__(self, data, index, verbose=False):
+        self.data=data
         self.index=index
         self.verbose=verbose
-        self.obj=self.struct[index]
+        self.obj=self.data[index]
 
-        wfield,=where(struct['field'] == self.obj['field'])
+        wfield,=where(data['field'] == self.obj['field'])
         self.wfield=wfield
 
         self.find_family()
@@ -833,11 +870,11 @@ class Family(object):
         work our way up to a parent, possibly a grandparent parent
         """
 
-        obj=self.struct[self.index]
+        obj=self.data[self.index]
 
-        fstruct=self.struct[self.wfield]
+        fdata=self.data[self.wfield]
 
-        findex,=where(fstruct['id']==obj['id'])
+        findex,=where(fdata['id']==obj['id'])
 
         # indices are in the field at this point
         wgrandparent=self.empty_array()
@@ -848,14 +885,14 @@ class Family(object):
                 # it is a grandparent parent
                 wgrandparent=findex.copy()
                 # the real parent is the one who has me listed as parent
-                wparent,=where(fstruct['parent']==obj['id'])
+                wparent,=where(fdata['parent']==obj['id'])
                 if wparent.size==0:
                     # the faint version simply isn't here
                     # we can go no further
                     wchild=self.empty_array()
                 else:
                     # now the children have this parent listed
-                    wchild,=where(fstruct['parent']==fstruct['id'][wparent])
+                    wchild,=where(fdata['parent']==fdata['id'][wparent])
 
                 mess='is grandparent parent with %s children' % obj['nchild']
             else:
@@ -863,10 +900,10 @@ class Family(object):
                 wparent=findex.copy()
 
                 # I may have a grandparent version
-                wgrandparent,=where(fstruct['id'] == obj['parent'])
+                wgrandparent,=where(fdata['id'] == obj['parent'])
 
                 # children list me as parent
-                wchild,=where(fstruct['parent']==obj['id'])
+                wchild,=where(fdata['parent']==obj['id'])
                 mess='is parent with %s children' % obj['nchild']
         else:
             # this is a child
@@ -876,22 +913,22 @@ class Family(object):
                 wparent=findex.copy()
 
                 # the grandparent must be the parent of this object
-                wgrandparent,=where(fstruct['id']==obj['parent'])
+                wgrandparent,=where(fdata['id']==obj['parent'])
 
                 # and children are now its children
-                wchild,=where(fstruct['parent']==obj['id'])
+                wchild,=where(fdata['parent']==obj['id'])
                 mess='is child of %s with %s children' % (obj['parent'],obj['nchild'])
             else:
                 # normal child
-                wparent,=where(fstruct['id']==obj['parent'])
-                wchild,=where(fstruct['parent']==obj['parent'])
+                wparent,=where(fdata['id']==obj['parent'])
+                wchild,=where(fdata['parent']==obj['parent'])
 
                 # we can try to find a grandparent parent if the parent
                 # is found
                 if wparent.size > 0:
-                    if fstruct['parent'][wparent] != -1:
+                    if fdata['parent'][wparent] != -1:
                         # a grandparent parent does exist
-                        wgrandparent,=where(fstruct['id']==fstruct['parent'][wparent])
+                        wgrandparent,=where(fdata['id']==fdata['parent'][wparent])
                 mess="is child with %s siblings" % (wchild.size-1)
                        
 
@@ -913,3 +950,40 @@ class Family(object):
             print 'grandparent:  ',self.wgrandparent
             print 'parent:       ',self.wparent
             print 'children:     ',self.wchild
+
+def get_id_info(**keys):
+    """
+    Get id info based on a wide variety of possible inputs
+    """
+    import copy
+    import sdsspy
+    out=copy.deepcopy(keys)
+
+    cat=keys.get('cat',None)
+    if cat is not None:
+        if len(cat['run'].shape)==0:
+            tcat=cat
+        else:
+            tcat=cat[0]
+        for k in ['run','rerun','camcol','field','id']:
+            out[k] = tcat[k]
+        out['objid'] = objid(tcat)
+        out['photoid'] = photoid(tcat)
+    elif 'objid' in keys:
+        # for the title
+        ids=sdsspy.util.objid_extract(keys['objid'])
+        for k in ids:
+            out[k] = ids[k]
+        out['photoid'] = photoid(out['run'],out['rerun'],out['camcol'],
+                                 out['field'],out['id'])
+    elif 'photoid' in keys:
+        # for the title
+        ids=sdsspy.util.photoid_extract(keys['photoid'])
+        for k in ids:
+            out[k] = ids[k]
+        out['objid'] = objid(out['run'],out['rerun'],out['camcol'],
+                             out['field'],out['id'])
+
+    return out
+
+

@@ -200,7 +200,7 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
                 ext=fs['ext']
                 keys['ext'] = ext
 
-        if lftype == 'psField' and ext != 6 or filter is not None:
+        if lftype == 'psField' and (ext != 6 or filter is not None):
             return _read_psfield(flist, **keys)
 
         return esutil.io.read(flist, **keys)
@@ -755,15 +755,16 @@ def id2string(ids):
 
 
 filter_dict = {0: 'u',
-             1: 'g',
-             2: 'r',
-             3: 'i',
-             4: 'z',
-             'u':'u',
-             'g':'g',
-             'r':'r',
-             'i':'i',
-             'z':'z'}
+               1: 'g',
+               2: 'r',
+               3: 'i',
+               4: 'z',
+               'u':'u',
+               'g':'g',
+               'r':'r',
+               'i':'i',
+               'z':'z',
+               'irg':'irg'}
 
 def filter2string(filter):
     """
@@ -889,10 +890,13 @@ def expand_sdssvars(string_in, **keys):
         string = string.replace('$ID', tostring(id))
 
     if string.find('$FILTER') != -1:
-        fiter=keys.get('filter',None)
+        filter=keys.get('filter',None)
         if filter is None:
-            raise ValueError("filter keyword must be sent: '%s'" % string)
-        string = string.replace('$FILTER', filter2string(band))
+            band=keys.get('band',None)
+            if band is None:
+                raise ValueError("filter keyword must be sent (or band): '%s'" % string)
+            filter=band
+        string = string.replace('$FILTER', filter2string(filter))
 
     if string.find('$TYPE') != -1:
         type=keys.get('type',None)

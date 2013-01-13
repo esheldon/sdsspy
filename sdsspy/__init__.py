@@ -33,19 +33,19 @@ import sys
 
 
 try:
-    import atlas
+    from . import atlas
 except:
     sys.stderr.write('sdsspy.atlas not loaded\n')
 
 
 try:
     from . import files
-    from files import filename
-    from files import filedir
-    from files import read
-    from files import filespec
-    from files import runlist
-    from files import file_list
+    from .files import filename
+    from .files import filedir
+    from .files import read
+    from .files import filespec
+    from .files import runlist
+    from .files import file_list
 except:
     sys.stderr.write('sdsspy.files module not loaded\n')
 
@@ -56,22 +56,27 @@ except:
 
 
 try:
-    import yanny
+    from . import yanny
 except:
     sys.stderr.write('sdsspy.yanny module not loaded\n')
 
 try:
-    import flags
-    from flags import flagval
-    from flags import Flags
+    from .import flags
+    from .flags import flagval
+    from .flags import Flags
 except:
     sys.stderr.write('sdsspy.flags module not loaded\n')
 
 
 try:
-    import util
-    from util import *
+    from . import util
+    from . util import *
 except:
     sys.stderr.write('sdsspy.util module not loaded\n')
+
+try:
+    from . import astrom
+except:
+    sys.stderr.write('sdsspy.astrom module not loaded\n')
 
 

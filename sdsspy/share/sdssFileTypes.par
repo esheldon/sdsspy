@@ -39,7 +39,7 @@ FILETYPE fpBIN                  $PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL          
 FILETYPE fpFieldStat            $PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL                  fpFieldStat-$RUNSTR-$COL-$FIELDSTR.fit          -1
 FILETYPE fpM                    $PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL                  fpM-$RUNSTR-$FILTER$COL-$FIELDSTR.fit           -1
 FILETYPE fpObjc                 $PHOTO_REDUX/$RERUN/$RUNNUM/objcs/$COL                  fpObjc-$RUNSTR-$COL-$FIELDSTR.fit               1
-FILETYPE frame                  $BOSS_PHOTOOBJ/frames/$RERUN/$RUNNUM/$COL               frame-$FILTER-$RUNSTR-$COL-FIELDSTR.fits        1
+FILETYPE frame                  $BOSS_PHOTOOBJ/frames/$RERUN/$RUNNUM/$COL               frame-$FILTER-$RUNSTR-$COL-$FIELDSTR.fits        0
 FILETYPE framethumbjpg          $BOSS_PHOTOOBJ/frames/$RERUN/$RUNNUM/$COL               frame-thumb-$FILTER-$RUNSTR-$COL-$FIELDSTR.jpg  -1
 FILETYPE framejpg               $BOSS_PHOTOOBJ/frames/$RERUN/$RUNNUM/$COL               frame-$FILTER-$RUNSTR-$COL-$FIELDSTR.jpg        -1
 FILETYPE hoggAstrom             $PHOTO_REDUX/$RERUN/$RUNNUM/astrom                      hoggAstrom-$RUNSTR-$FILTER$COL.fits             1
