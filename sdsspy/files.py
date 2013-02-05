@@ -201,7 +201,7 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
                 ext=fs['ext']
                 keys['ext'] = ext
 
-        if lftype == 'psField' and (ext != 6 or filter is not None):
+        if lftype == 'psfield' and (ext != 6 or filter is not None):
             return _read_psfield(flist, **keys)
 
         return esutil.io.read(flist, **keys)
