@@ -14,6 +14,7 @@ get_parent
 """
 
 from numpy import array, where, concatenate
+import sdsspy
 
 class Family(object):
     """
@@ -170,14 +171,12 @@ def get_family(**keys):
     Returns a Family object.  Reads the photoobj files to get
     the data and find the family.
 
-    You must enter as keywords objid or photoid or run,rerun,camcol,field,id or
-    a structure with those.
+    You must enter as keywords objid or photoid or run,rerun,camcol,field,id
 
     """
     from .util import get_id_info, get_photoid
-    from .family import Family
 
-    data=read('photoObj',lower=True, **keys)
+    data=sdsspy.read('photoObj',lower=True, **keys)
     if data is None:
         raise ValueError("failed to read any photoObj files for this id")
 
