@@ -1,11 +1,14 @@
 """
 Defines the class Astrom for converting between pixels and equatorial
 coordinates.
+
+Also defines eq2gc and gc2eq functions to convert between ra,dec and
+"great circle" coordinates
+
 """
 import numpy
 from numpy import where, array, cos, sin, arctan2, \
         arcsin, zeros, deg2rad, rad2deg, abs
-
 
 class Astrom(object):
     """
@@ -59,7 +62,7 @@ class Astrom(object):
         """
  
         mu,nu=self.pix2munu(field,filter,row,col,color=color)
-        ra,dec=self.gc2eq(mu,nu)
+        ra,dec=gc2eq(mu,nu,self._node, self._incl)
         return ra,dec
 
     def eq2pix(self, field, filter, ra, dec, color=0.3):
@@ -80,100 +83,11 @@ class Astrom(object):
             The pixel coords
         """
  
-        mu,nu = self.eq2gc(ra, dec)
+        mu,nu = eq2gc(ra, dec, self._node, self._incl)
         row,col = self.munu2pix(field, filter, mu, nu, color=color)
 
         return row,col
 
-    def eq2gc(self, ra, dec):
-        """
-        convert from equatorial (ra,dec) to SDSS great circle coordinates
-        (mu,nu)
-
-        parameters
-        ----------
-        ra,dec: scalar or arrays
-            The equatorial coordinates in degrees
-
-        outputs
-        -------
-        mu,nu:
-            The SDSS great circle coords in degrees
-        """
-        ra,dec,are_scalar=self._get_array_args(ra,dec,"ra","dec")
-
-        rarad=deg2rad(ra)
-        decrad=deg2rad(dec)
- 
-        node=self._node_rad
-        incl=self._incl_rad
-
-        cosdec=cos(decrad)
-        x1 = cos(rarad - node)*cosdec
-        y1 = sin(rarad - node)*cosdec
-        z1 = sin(decrad)
-        x2 = x1
-        y2 = y1*cos(incl) + z1*sin(incl)
-        z2 =-y1*sin(incl) + z1*cos(incl)
-
-        mu = arctan2(y2, x2) + node
-        nu = arcsin(z2)
-
-        rad2deg(mu,mu)
-        rad2deg(nu,nu)
-
-        self._atbound2(nu, mu)
-
-        if are_scalar:
-            mu=mu[0]
-            nu=nu[0]
-
-        return mu,nu
-
-    def gc2eq(self, mu, nu):
-        """
-        convert from SDSS great circle coordinates (mu,nu) to equatorial
-        (ra,dec)
-
-        parameters
-        ----------
-        mu,nu: scalar or arrays
-            The great circle coordinates in degrees
-
-        outputs
-        -------
-        ra,dec:
-            Equatorial coordinates in degrees
-        """
- 
-        mu,nu,are_scalar=self._get_array_args(mu,nu,"mu","nu")
-
-        murad=deg2rad(mu)
-        nurad=deg2rad(nu)
-
-        node=self._node_rad
-        incl=self._incl_rad
-        
-        cosnu=cos(nurad)
-        x2 = cos(murad-node)*cosnu
-        y2 = sin(murad-node)*cosnu
-        z2 = sin(nurad)
-        y1 = y2*cos(incl) - z2*sin(incl)
-        z1 = y2*sin(incl) + z2*cos(incl)
-
-        ra = arctan2(y1, x2) + node
-        dec = arcsin(z1)
-
-        rad2deg(ra,ra)
-        rad2deg(dec,dec)
-
-        self._atbound2(dec, ra)
-
-        if are_scalar:
-            ra=ra[0]
-            dec=dec[0]
-
-        return ra, dec
 
     def munu2pix(self, field, filter, mu, nu, color=0.3):
         """
@@ -200,7 +114,7 @@ class Astrom(object):
         """
 
         import scipy.optimize
-        mu,nu,are_scalar=self._get_array_args(mu,nu,"mu","nu")
+        mu,nu,are_scalar=get_array_args(mu,nu,"mu","nu")
         color=self._get_color(color, mu.size)
 
         trans=self.trans
@@ -281,7 +195,7 @@ class Astrom(object):
             SDSS great circle coords in degrees
         """
        
-        row,col,are_scalar=self._get_array_args(row,col,"row","col")
+        row,col,are_scalar=get_array_args(row,col,"row","col")
         color=self._get_color(color, row.size)
 
         trans=self.trans
@@ -403,34 +317,6 @@ class Astrom(object):
 
         return diff
 
-    def _atbound(self, angle, minval, maxval):
-
-        w,=where(angle < minval)
-        if w.size > 0:
-            angle[w] = angle[w] + 360.0
-            w,=where(angle < minval)
-
-        w,=where(angle >= maxval)
-        while w.size != 0:
-            angle[w] = angle[w] - 360.0
-            w,=where(angle >= maxval)
-
-
-    def _atbound2(self, theta, phi):
-
-        self._atbound( theta, -180.0, 180.0 )
-        w, = where( abs(theta) > 90.)
-        if w.size > 0:
-            theta[w] = 180. - theta[w]
-            phi[w] = phi[w] + 180.
-
-        self._atbound( theta, -180.0, 180.0 )
-        self._atbound( phi, 0.0, 360.0 )
-
-        w,=where( abs(theta) == 90. )
-        if w.size > 0:
-            phi[w] = 0.0
-
     def _get_filter_num(self, filter):
         from . import util
         if filter is None:
@@ -457,26 +343,6 @@ class Astrom(object):
                 raise ValueError("color must be scalar or size "
                                  "%d, got %d" % (size,color.size))
         return color
-
-
-    def _get_array_args(self, x1, x2, name1, name2):
-        is_scalar1=_is_scalar(x1)
-        is_scalar2=_is_scalar(x2)
-
-        if is_scalar1 != is_scalar2:
-            mess="%s and %s must both be scalar or array"
-            mess = mess % (name1,name2)
-            raise ValueError(mess)
-
-        x1=array(x1,copy=False,dtype='f8',ndmin=1)
-        x2=array(x2,copy=False,dtype='f8',ndmin=1)
-
-        if x1.size != x2.size:
-            mess="%s and %s must both be same length.  got %s and %s"
-            mess = mess % (name1,name2,x1.size,x2.size)
-            raise ValueError(mess)
-
-        return x1,x2,is_scalar1
 
 
 class AstromAstrans(object):
@@ -541,7 +407,7 @@ class AstromAstrans(object):
         """
  
         mu,nu=self.pix2munu(field,row,col,color=color)
-        ra,dec=self.gc2eq(mu,nu)
+        ra,dec=gc2eq(mu,nu,self._node, self._incl)
         return ra,dec
 
     def eq2pix(self, field, ra, dec, color=0.3):
@@ -562,104 +428,11 @@ class AstromAstrans(object):
             The pixel coords
         """
  
-        mu,nu = self.eq2gc(ra, dec)
+        mu,nu = eq2gc(ra, dec, self._node, self._incl)
         row,col = self.munu2pix(field, mu, nu, color=color)
 
         return row,col
 
-    def eq2gc(self, ra, dec):
-        """
-        convert from equatorial (ra,dec) to SDSS great circle coordinates
-        (mu,nu)
-
-        parameters
-        ----------
-        field: integer
-            The SDSS field.
-        ra,dec: scalar or arrays
-            The equatorial coordinates in degrees
-
-        outputs
-        -------
-        mu,nu:
-            The SDSS great circle coords in degrees
-        """
-        ra,dec,are_scalar=self._get_array_args(ra,dec,"ra","dec")
-
-        rarad=deg2rad(ra)
-        decrad=deg2rad(dec)
- 
-        node=self._node_rad
-        incl=self._incl_rad
-
-        cosdec=cos(decrad)
-        x1 = cos(rarad - node)*cosdec
-        y1 = sin(rarad - node)*cosdec
-        z1 = sin(decrad)
-        x2 = x1
-        y2 = y1*cos(incl) + z1*sin(incl)
-        z2 =-y1*sin(incl) + z1*cos(incl)
-
-        mu = arctan2(y2, x2) + node
-        nu = arcsin(z2)
-
-        rad2deg(mu,mu)
-        rad2deg(nu,nu)
-
-        self._atbound2(nu, mu)
-
-        if are_scalar:
-            mu=mu[0]
-            nu=nu[0]
-
-        return mu,nu
-
-    def gc2eq(self, mu, nu):
-        """
-        convert from SDSS great circle coordinates (mu,nu) to equatorial
-        (ra,dec)
-
-        parameters
-        ----------
-        field: integer
-            The SDSS field.
-        mu,nu: scalar or arrays
-            The great circle coordinates in degrees
-
-        outputs
-        -------
-        ra,dec:
-            Equatorial coordinates in degrees
-        """
- 
-        mu,nu,are_scalar=self._get_array_args(mu,nu,"mu","nu")
-
-        murad=deg2rad(mu)
-        nurad=deg2rad(nu)
-
-        node=self._node_rad
-        incl=self._incl_rad
-        
-        cosnu=cos(nurad)
-        x2 = cos(murad-node)*cosnu
-        y2 = sin(murad-node)*cosnu
-        z2 = sin(nurad)
-        y1 = y2*cos(incl) - z2*sin(incl)
-        z1 = y2*sin(incl) + z2*cos(incl)
-
-        ra = arctan2(y1, x2) + node
-        dec = arcsin(z1)
-
-        rad2deg(ra,ra)
-        rad2deg(dec,dec)
-
-        self._atbound2(dec, ra)
-
-        if are_scalar:
-            ra=ra[0]
-            dec=dec[0]
-
-        return ra, dec
 
     def munu2pix(self, field, mu, nu, color=0.3):
         """
@@ -686,7 +459,7 @@ class AstromAstrans(object):
         """
 
         import scipy.optimize
-        mu,nu,are_scalar=self._get_array_args(mu,nu,"mu","nu")
+        mu,nu,are_scalar=get_array_args(mu,nu,"mu","nu")
 
         color=array(color,dtype='f8', ndmin=1, copy=False)
         if color.size > 1 and color.size !=mu.size:
@@ -768,7 +541,7 @@ class AstromAstrans(object):
             SDSS great circle coords in degrees
         """
        
-        row,col,are_scalar=self._get_array_args(row,col,"row","col")
+        row,col,are_scalar=get_array_args(row,col,"row","col")
 
         trans=self.trans
         w,=where(trans['field']==field)
@@ -886,52 +659,168 @@ class AstromAstrans(object):
 
         return diff
 
-    def _atbound(self, angle, minval, maxval):
 
+
+def eq2gc(ra, dec, node, incl):
+    """
+    convert from equatorial (ra,dec) to SDSS great circle coordinates
+    (mu,nu)
+
+    parameters
+    ----------
+    ra,dec: scalar or arrays
+        The equatorial coordinates in degrees
+    node:
+        node value in degrees
+    incl:
+        inclination value in degrees
+
+    outputs
+    -------
+    mu,nu:
+        The SDSS great circle coords in degrees
+    """
+    ra,dec,are_scalar=get_array_args(ra,dec,"ra","dec")
+
+    rarad=deg2rad(ra)
+    decrad=deg2rad(dec)
+
+    noderad=deg2rad(node)
+    inclrad=deg2rad(incl)
+
+    cosdec=cos(decrad)
+    ra_minus_node = rarad - noderad
+    cosincl=cos(inclrad)
+    sinincl=sin(inclrad)
+
+    x1 = cos(ra_minus_node)*cosdec
+    y1 = sin(ra_minus_node)*cosdec
+    z1 = sin(decrad)
+
+    x2 = x1
+    y2 = y1*cosincl + z1*sinincl
+    z2 =-y1*sinincl + z1*cosincl
+
+    mu = arctan2(y2, x2) + noderad
+    nu = arcsin(z2)
+
+    rad2deg(mu,mu)
+    rad2deg(nu,nu)
+
+    atbound2(nu, mu)
+
+    if are_scalar:
+        mu=mu[0]
+        nu=nu[0]
+
+    return mu,nu
+
+def gc2eq(mu, nu, node, incl):
+    """
+    convert from SDSS great circle coordinates (mu,nu) to equatorial
+    (ra,dec)
+
+    parameters
+    ----------
+    mu,nu: scalar or arrays
+        The great circle coordinates in degrees
+    node:
+        node value in degrees
+    incl:
+        inclination value in degrees
+
+
+    outputs
+    -------
+    ra,dec:
+        Equatorial coordinates in degrees
+    """
+
+    mu,nu,are_scalar=get_array_args(mu,nu,"mu","nu")
+
+    murad=deg2rad(mu)
+    nurad=deg2rad(nu)
+    noderad=deg2rad(node)
+    inclrad=deg2rad(incl)
+    
+    cosnu=cos(nurad)
+    mu_minus_node=murad-noderad
+    x2 = cos(mu_minus_node)*cosnu
+    y2 = sin(mu_minus_node)*cosnu
+    z2 = sin(nurad)
+
+    cosincl=cos(inclrad)
+    sinincl=sin(inclrad)
+    y1 = y2*cosincl - z2*sinincl
+    z1 = y2*sinincl + z2*cosincl
+
+    ra = arctan2(y1, x2) + noderad
+    dec = arcsin(z1)
+
+    rad2deg(ra,ra)
+    rad2deg(dec,dec)
+
+    atbound2(dec, ra)
+
+    if are_scalar:
+        ra=ra[0]
+        dec=dec[0]
+
+    return ra, dec
+
+
+def atbound(angle, minval, maxval):
+
+    while True:
         w,=where(angle < minval)
-        if w.size > 0:
-            angle[w] = angle[w] + 360.0
-            w,=where(angle < minval)
+        if w.size==0:
+            break
+        angle[w] += 360.0
 
+    while True:
         w,=where(angle >= maxval)
-        while w.size != 0:
-            angle[w] = angle[w] - 360.0
-            w,=where(angle >= maxval)
+        if w.size==0:
+            break
+        angle[w] -= 360.0
 
 
-    def _atbound2(self, theta, phi):
+def atbound2(theta, phi):
 
-        self._atbound( theta, -180.0, 180.0 )
-        w, = where( abs(theta) > 90.)
-        if w.size > 0:
-            theta[w] = 180. - theta[w]
-            phi[w] = phi[w] + 180.
+    atbound( theta, -180.0, 180.0 )
+    w, = where( abs(theta) > 90.)
+    if w.size > 0:
+        theta[w] = 180. - theta[w]
+        phi[w] = phi[w] + 180.
 
-        self._atbound( theta, -180.0, 180.0 )
-        self._atbound( phi, 0.0, 360.0 )
+    atbound( theta, -180.0, 180.0 )
+    atbound( phi, 0.0, 360.0 )
 
-        w,=where( abs(theta) == 90. )
-        if w.size > 0:
-            phi[w] = 0.0
+    w,=where( abs(theta) == 90. )
+    if w.size > 0:
+        phi[w] = 0.0
 
-    def _get_array_args(self, x1, x2, name1, name2):
-        is_scalar1=_is_scalar(x1)
-        is_scalar2=_is_scalar(x2)
 
-        if is_scalar1 != is_scalar2:
-            mess="%s and %s must both be scalar or array"
-            mess = mess % (name1,name2)
-            raise ValueError(mess)
 
-        x1=array(x1,copy=False,dtype='f8',ndmin=1)
-        x2=array(x2,copy=False,dtype='f8',ndmin=1)
+def get_array_args(x1, x2, name1, name2):
+    is_scalar1=_is_scalar(x1)
+    is_scalar2=_is_scalar(x2)
 
-        if x1.size != x2.size:
-            mess="%s and %s must both be same length.  got %s and %s"
-            mess = mess % (name1,name2,x1.size,x2.size)
-            raise ValueError(mess)
+    if is_scalar1 != is_scalar2:
+        mess="%s and %s must both be scalar or array"
+        mess = mess % (name1,name2)
+        raise ValueError(mess)
 
-        return x1,x2,is_scalar1
+    x1=array(x1,copy=False,dtype='f8',ndmin=1)
+    x2=array(x2,copy=False,dtype='f8',ndmin=1)
+
+    if x1.size != x2.size:
+        mess="%s and %s must both be same length.  got %s and %s"
+        mess = mess % (name1,name2,x1.size,x2.size)
+        raise ValueError(mess)
+
+    return x1,x2,is_scalar1
+
+
 
 def _is_scalar(obj):
     try:

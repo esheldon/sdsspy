@@ -193,7 +193,8 @@ class Window():
             minscore:  
                 Only runs,reruns with score > minscore will be returned.  Note
                 the version in IDL PHOTOOP uses >=, so be careful when
-                converting your code.
+                converting your code. This is a difference between numpy and
+                IDL with regards to numerical precision issues.
 
             rescore: If True, re-score the runs.
         """
