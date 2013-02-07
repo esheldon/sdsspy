@@ -42,7 +42,7 @@ class Window():
         
     """
     def __init__(self):
-        self._types = ['flist','blist','balkans','bcaps','findx','bindx']
+        self._types = ['flist','blist','balkans','bcaps','findx','bindx','unified']
         resolve_dir = os.getenv('PHOTO_RESOLVE')
         if resolve_dir is None:
             raise ValueError('$PHOTO_RESOLVE is not set')
@@ -131,6 +131,10 @@ class Window():
             fname = self.name('bindx')
             output['bindx'] = esutil.io.read(fname, ext=1, lower=True, verbose=verbose)
 
+        if 'unified' in types:
+            fname = self.name('unified')
+            output['unified'] = esutil.io.read(fname, ext=1, lower=True, verbose=verbose)
+
         if 'balkans' in types:
             import sdss_mangle
             if verbose:
@@ -174,6 +178,29 @@ class Window():
         if is_scalar:
             return output[types[0]]
         return output            
+
+    def get_primary_fields(self, minscore=None):
+        """
+        Get the field list for primary fields
+
+        parameters
+        ----------
+        minscore: float, optional
+            Get fields with score > minscore
+        """
+
+        flist=self.read('flist')
+        unif=self.read('unified')
+        u,iuniq= numpy.unique(unif['ifield'],return_index=True)
+
+        fids = unif['ifield'][iuniq]
+        flist=flist[fids]
+
+        if minscore is not None:
+            w,=numpy.where(flist['score'] > minscore)
+            flist=flist[w]
+
+        return flist
 
     def runlist(self, minscore=None, rescore=False):
         """
@@ -239,7 +266,7 @@ class Window():
             name = w.window_types()
 
             This should return:
-                ['flist','blist','balkans','bcaps','findx','bindx']
+                ['flist','blist','balkans','bcaps','findx','bindx','unified']
         """
 
         return self._types
