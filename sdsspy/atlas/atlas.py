@@ -50,7 +50,7 @@ def read_atlas(filename, id, trim=False):
     Outputs:
         A dictonary.  The dictionary has the following keys
             'images': 
-                A list with images from each bandpass. 0->u, 1->g, 2->r, 3->i, 4->i
+                A list with images from each bandpass. 0->u, 1->g, 2->r, 3->i, 4->z
                 The images are 2-d numpy arrays of type uint16.
             'row0', 'col0': 
                 The offset of the lower left hand corner into the original
@@ -60,7 +60,10 @@ def read_atlas(filename, id, trim=False):
                 The difference in center relative to the cononical bandpass,
                 the r-band.
             'rmin','rmax','cmin','cmax': 
-                The bounding box of the atlas image.
+                The bounding box of the atlas image; rmax and cmax are the
+                exact values stored in the atlas image, and are thus *inclusive*.
+                    atlas_dict['images'][:].shape == (1+rmax-rmin, 1+cmax-cmin)
+
             'run','rerun','camcol','field','id': 
                 The sdss file information.
             'filename': 
