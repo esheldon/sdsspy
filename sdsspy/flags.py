@@ -52,7 +52,7 @@ class Flags():
         Flags
     Purpose:
         Work with SDSS flag values, e.g. photometric processing flags, target
-        flags, etc.  The flag info is read from $SDSSPY_DIR/share/sdssMaskbits.par
+        flags, etc.  The flag info is read from $PREFIX/share/sdssMaskbits.par
 
     Calling Sequence:
         >>> import sdsspy
@@ -88,8 +88,7 @@ class Flags():
         self.load(reload=True)
         
     def filename(self):
-        filename='$SDSSPY_DIR/share/sdssMaskbits.par'
-        filename=sdsspy.files.expand_sdssvars(filename)
+        filename=sdsspy.files.filename('sdssMaskbits')
         return filename
 
     def get_prefix(self, prefix):

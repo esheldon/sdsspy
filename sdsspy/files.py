@@ -27,7 +27,7 @@
         filespec(ftype)
             Return the path specificition for the in input file type.  This information
             read from
-                $SDSSPY_DIR/share/sdssFileTypes.par
+                $PREFIX/share/sdssFileTypes.par
 
         file_list(ftype, **keys)
             Get lists of SDSS files based on id info.
@@ -90,6 +90,12 @@ import sdsspy
 from .util import FILTERNUM, FILTERCHARS
 
 
+def get_sdsspy_dir():
+    sep=os.sep
+    fs=__file__.split(sep)
+    dir = '/'.join( fs[0:-5] )
+    return dir
+
 def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
     """
     Module:
@@ -116,7 +122,7 @@ def read(ftype, run=None, camcol=None, field=None, id=None, **keys):
     Inputs:
         ftype: 
             A file type, such as 'psField', 'fpAtlas', 'calibObj.gal'.  See
-            $SDSSPY_DIR/share/sdssFileTypes.par for a list of types.
+            $PREFIX/share/sdssFileTypes.par for a list of types.
 
             The ftype is case-insensitive.
 
@@ -229,7 +235,7 @@ def filename(ftype, run=None, camcol=None, field=None, **keys):
     Inputs:
         ftype: 
             A file type, such as 'psField', 'fpAtlas', 'calibObj.gal'.  See
-            $SDSSPY_DIR/share/sdssFileTypes.par for a list of types.  
+            $PREFIX/share/sdssFileTypes.par for a list of types.  
             
             The ftype is case-insensitive.
 
@@ -290,7 +296,7 @@ def filedir(ftype, run=None, camcol=None, **keys):
     Inputs:
         ftype: 
             A file type, such as 'psField', 'fpAtlas', 'calibObj.gal'.  See
-            $SDSSPY_DIR/share/sdssFileTypes.par for a list of types.  
+            $PREFIX/share/sdssFileTypes.par for a list of types.  
             
             The ftype is case-insensitive.
 
@@ -321,7 +327,7 @@ def filespec(ftype):
     Purpose:
         Return the path specificition for the in input file type.  This information
         read from
-            $SDSSPY_DIR/share/sdssFileTypes.par
+            $PREFIX/share/sdssFileTypes.par
     Inputs:
         ftype:  The file type. The ftype is case-insensitive.
 
@@ -424,9 +430,7 @@ class FileSpec:
 
     def load(self, reload=False):
         if not hasattr(FileSpec, '_filetypes') or reload:
-            if 'SDSSPY_DIR' not in os.environ:
-                raise ValueError('SDSSPY_DIR environment var must be set')
-            d=os.environ['SDSSPY_DIR']
+            d=get_sdsspy_dir()
             d = os.path.join(d, 'share')
             f = os.path.join(d, 'sdssFileTypes.par')
 
@@ -505,7 +509,7 @@ def file_list(ftype, run=None, camcol=None, field=None, **keys):
     Inputs:
         ftype: 
             A file type, such as 'psField', 'fpAtlas', 'calibObj.gal'.  See
-            $SDSSPY_DIR/share/sdssFileTypes.par for a list of types.
+            $PREFIX/share/sdssFileTypes.par for a list of types.
 
             The ftype is case-insensitive.
 
@@ -836,7 +840,10 @@ def expand_sdssvars(string_in, **keys):
     # this will expand all environment variables, e.g. $PHOTO_SWEEP
     # if they don't exist, the result will be incomplete
 
-    string = os.path.expandvars(string)
+
+    if string.find('$SDSSPY_DIR') != -1:
+        sdsspy_dir=get_sdsspy_dir()
+        string = string.replace('$SDSSPY_DIR', sdsspy_dir)
 
     if string.find('$RUNNUM') != -1:
         run=keys.get('run', None)
@@ -907,6 +914,8 @@ def expand_sdssvars(string_in, **keys):
         if type is None:
             raise ValueError("type keyword must be sent: '%s'" % string)
         string = string.replace('$TYPE', tostring(type))
+
+    string = os.path.expandvars(string)
 
     # see if there are any leftover un-expanded variables.  If so
     # raise an exception
