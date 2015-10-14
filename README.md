@@ -1,3 +1,3 @@
 # sdsspy
 
-Automatically exported from code.google.com/p/sdsspy
+Automatically exported from https://code.google.com/p/sdsspy
